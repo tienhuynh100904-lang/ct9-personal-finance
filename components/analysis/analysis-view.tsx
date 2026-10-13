@@ -9,6 +9,7 @@ import { RankedBars } from '@/components/charts/ranked-bars'
 import { SavingRateChart } from '@/components/charts/saving-rate-chart'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Segmented } from '@/components/ui/choice'
 import { Select } from '@/components/ui/select'
 import { StatTile } from '@/components/ui/stat-tile'
@@ -211,15 +212,9 @@ export function AnalysisView({
             title="Top khoản chi cả năm"
             description="Xếp theo tổng số tiền của từng khoản mục"
             action={
-              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink-2">
-                <input
-                  type="checkbox"
-                  checked={includeSaving}
-                  onChange={(e) => setIncludeSaving(e.target.checked)}
-                  className="size-5 accent-[var(--brand)]"
-                />
+              <Checkbox checked={includeSaving} onChange={(e) => setIncludeSaving(e.target.checked)}>
                 Gồm tiết kiệm
-              </label>
+              </Checkbox>
             }
           />
           <CardBody>

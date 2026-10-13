@@ -1,12 +1,15 @@
 'use client'
 
-import { Check, LoaderCircle, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Check, LoaderCircle, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useMemo, useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Segmented } from '@/components/ui/choice'
+import { ClearableInput } from '@/components/ui/clearable-input'
 import { Input } from '@/components/ui/field'
 import { Pagination } from '@/components/ui/pagination'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { toast } from '@/lib/toast'
 import { runAction } from '@/lib/run-action'
@@ -159,11 +162,12 @@ export function ItemsManager({ items, usage }: { items: ItemRecord[]; usage: Ite
           if (newName.trim()) add(newName, newCategory)
         }}
       >
-        <Input
+        <ClearableInput
           value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          onValueChange={setNewName}
           placeholder={kind === 'expense' ? 'Tên khoản mục chi, VD: Đổ xăng' : 'Tên khoản thu, VD: Lương'}
           aria-label="Tên khoản mục mới"
+          clearLabel="Xoá tên khoản mục"
           maxLength={100}
           className="h-10"
         />
@@ -175,21 +179,16 @@ export function ItemsManager({ items, usage }: { items: ItemRecord[]; usage: Ite
       </form>
 
       <div className="grid gap-2 border-b border-line bg-surface-2/50 p-4 sm:grid-cols-[1fr_16rem] sm:p-5">
-        <label className="relative block">
-          <span className="sr-only">Tìm khoản mục</span>
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-          <Input
-            type="search"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setPage(1)
-            }}
-            placeholder="Tìm khoản mục…"
-            enterKeyHint="search"
-            className="h-10 pl-9"
-          />
-        </label>
+        <SearchInput
+          label="Tìm khoản mục"
+          value={query}
+          onValueChange={(next) => {
+            setQuery(next)
+            setPage(1)
+          }}
+          placeholder="Tìm khoản mục…"
+          className="h-10"
+        />
         <Select
           label="Lọc theo phân loại"
           value={categoryFilter}
@@ -343,15 +342,9 @@ function EditRow({ item, onDone }: { item: ItemRecord; onDone: () => void }) {
         </div>
       </form>
       {renamed ? (
-        <label className="flex items-center gap-2 text-sm text-ink-2">
-          <input
-            type="checkbox"
-            checked={renameTransactions}
-            onChange={(e) => setRenameTransactions(e.target.checked)}
-            className="size-5 accent-[var(--brand)]"
-          />
+        <Checkbox checked={renameTransactions} onChange={(e) => setRenameTransactions(e.target.checked)}>
           Đổi tên cả các giao dịch đã ghi “{item.name}” (gộp nếu tên mới đã tồn tại)
-        </label>
+        </Checkbox>
       ) : null}
     </li>
   )

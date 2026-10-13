@@ -1,4 +1,5 @@
 import { LogOut } from 'lucide-react'
+import { Tooltip } from '@/components/ui/tooltip'
 import { signOut } from '@/lib/actions/auth'
 import { getSession } from '@/lib/auth'
 
@@ -13,18 +14,19 @@ export async function UserMenu() {
       >
         {email.charAt(0)}
       </div>
-      <p className="min-w-0 flex-1 truncate text-sm text-ink-2" title={email}>
-        {email}
-      </p>
+      <Tooltip label={email} align="start" className="min-w-0 flex-1">
+        <p className="min-w-0 flex-1 truncate text-sm text-ink-2">{email}</p>
+      </Tooltip>
       <form action={signOut}>
-        <button
-          type="submit"
-          className="group grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink"
-          aria-label="Đăng xuất"
-          title="Đăng xuất"
-        >
-          <LogOut className="size-[18px] transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
-        </button>
+        <Tooltip label="Đăng xuất" align="end">
+          <button
+            type="submit"
+            className="group grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+            aria-label="Đăng xuất"
+          >
+            <LogOut className="size-[18px] transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
+          </button>
+        </Tooltip>
       </form>
     </div>
   )

@@ -1,14 +1,14 @@
 'use client'
 
-import { Download, Inbox, Search, SlidersHorizontal } from 'lucide-react'
+import { Download, Inbox, SlidersHorizontal } from 'lucide-react'
 import { useId, useLayoutEffect, useMemo, useState } from 'react'
 import { MonthSwitcher, useMonthParam, type MonthValue } from '@/components/app/period'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/lib/toast'
 import { Segmented } from '@/components/ui/choice'
 import { EmptyState } from '@/components/ui/empty-state'
-import { inputClasses } from '@/components/ui/field'
 import { Popover } from '@/components/ui/popover'
+import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
 import { CATEGORY_META, KIND_LABEL } from '@/lib/categories'
 import { cn } from '@/lib/cn'
@@ -109,18 +109,14 @@ export function TransactionsView({
           <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} allowAll stretch />
         </div>
         <div className="order-2 flex w-full gap-2 sm:order-none sm:w-auto sm:flex-1">
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Tìm kiếm</span>
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              enterKeyHint="search"
-              placeholder="Tìm khoản mục, ghi chú…"
-              className={cn(inputClasses, 'pl-9 sm:h-10 pointer-coarse:h-11')}
-            />
-          </label>
+          <SearchInput
+            label="Tìm kiếm"
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Tìm khoản mục, ghi chú…"
+            className="sm:h-10 pointer-coarse:h-11"
+            wrapperClassName="min-w-0 flex-1"
+          />
           <button
             type="button"
             onClick={() => setFiltersOpen((open) => !open)}

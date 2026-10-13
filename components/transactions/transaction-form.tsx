@@ -6,10 +6,12 @@ import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { ChoiceChips, Segmented } from '@/components/ui/choice'
 import { DialogBody, DialogFooter } from '@/components/ui/dialog'
-import { Field, Input, Textarea } from '@/components/ui/field'
+import { Calendar } from '@/components/ui/calendar'
+import { Field, FieldError, Input, Textarea } from '@/components/ui/field'
 import { toast } from '@/lib/toast'
 import { markNoSpend } from '@/lib/actions/day-marks'
 import { deleteTransaction, saveTransaction } from '@/lib/actions/transactions'
+import { longDateLabel } from '@/lib/calendar'
 import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import type { ComposerPreset, EditableTransaction } from '@/lib/composer'
@@ -285,15 +287,15 @@ export function TransactionForm({
             <div
               role="group"
               aria-label="Khoản mục hay dùng"
-              className="no-scrollbar -mx-5 mt-2 flex snap-x scroll-px-5 gap-2 overflow-x-auto px-5 pb-1"
+              className="mt-2 -mr-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto overscroll-contain py-0.5 pr-2"
             >
-              {visibleSuggestions.slice(0, 10).map((s) => (
+              {visibleSuggestions.map((s) => (
                 <button
                   key={s.name}
                   type="button"
                   onClick={() => pickQuick(s.name, s.category)}
                   className={cn(
-                    'h-10 shrink-0 snap-start rounded-full border px-3.5 text-sm transition-colors',
+                    'h-10 max-w-full shrink-0 truncate rounded-full border px-3.5 text-sm transition-colors',
                     s.name === item.trim()
                       ? 'border-brand-edge bg-brand text-on-brand'
                       : 'border-line-strong bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink active:bg-surface-2',
@@ -328,17 +330,13 @@ export function TransactionForm({
           <p className="mb-1.5 text-sm font-medium text-ink-2">Ngày</p>
           <ChoiceChips label="Ngày giao dịch" value={dateMode} onChange={chooseDateMode} options={dateOptions} />
           {dateMode === 'other' ? (
-            <Field label="Chọn ngày" htmlFor={`${formId}-date`} error={errors.occurred_on} className="mt-3">
-              <Input
-                id={`${formId}-date`}
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                aria-invalid={Boolean(errors.occurred_on)}
-                aria-describedby={errors.occurred_on ? `${formId}-date-error` : undefined}
-              />
-            </Field>
+            <div className="mt-3 rounded-2xl border border-line bg-surface-2/60 p-2 sm:p-3">
+              <Calendar value={date} onChange={setDate} today={today} label="Ngày giao dịch" />
+              <p className="mt-2 border-t border-line px-1 pt-2 text-center text-sm font-medium text-ink-2">
+                {longDateLabel(date)}
+              </p>
+              {errors.occurred_on ? <FieldError id={`${formId}-date-error`}>{errors.occurred_on}</FieldError> : null}
+            </div>
           ) : errors.occurred_on ? (
             <p role="alert" className="mt-1.5 text-xs font-medium text-negative">
               {errors.occurred_on}

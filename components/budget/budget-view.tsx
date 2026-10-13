@@ -8,7 +8,9 @@ import { MonthlyBars } from '@/components/charts/monthly-bars'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Segmented } from '@/components/ui/choice'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { toast } from '@/lib/toast'
 import { runAction } from '@/lib/run-action'
@@ -127,6 +129,8 @@ function BudgetEditor({
   )
   const [values, setValues] = useState(initial)
   const [applyToFollowing, setApplyToFollowing] = useState(false)
+  // The month the user asked for while there were unsaved changes; asks before discarding them.
+  const [leavingTo, setLeavingTo] = useState<number | null>(null)
   const [pending, startTransition] = useTransition()
   const dirty = BUDGET_CATEGORIES.some((c) => values[c] !== initial[c])
 
@@ -166,11 +170,23 @@ function BudgetEditor({
             month={month}
             years={[year]}
             onChange={(_, next) => {
-              if (dirty && !window.confirm('Bỏ các thay đổi chưa lưu của tháng này?')) return
-              onMonthChange(Number(next))
+              if (dirty) setLeavingTo(Number(next))
+              else onMonthChange(Number(next))
             }}
           />
         }
+      />
+      <ConfirmDialog
+        open={leavingTo !== null}
+        title="Bỏ thay đổi chưa lưu?"
+        description={`Số tiền bạn vừa nhập cho tháng ${month} sẽ mất nếu chuyển sang tháng khác.`}
+        confirmLabel="Bỏ và chuyển tháng"
+        destructive
+        onCancel={() => setLeavingTo(null)}
+        onConfirm={() => {
+          if (leavingTo !== null) onMonthChange(leavingTo)
+          setLeavingTo(null)
+        }}
       />
       <form
         className="space-y-5 p-4 sm:p-5"
@@ -225,26 +241,15 @@ function BudgetEditor({
           )
         })}
 
-        <label
-          className={cn(
-            'flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface-2 p-3 text-sm',
-            month === 12 && 'cursor-not-allowed opacity-50',
-          )}
+        <Checkbox
+          card
+          checked={applyToFollowing && month < 12}
+          disabled={month === 12}
+          onChange={(e) => setApplyToFollowing(e.target.checked)}
+          hint={month < 12 ? `Ghi cùng số tiền cho tháng ${month + 1}–12/${year}` : 'Tháng 12 là tháng cuối năm'}
         >
-          <input
-            type="checkbox"
-            checked={applyToFollowing && month < 12}
-            disabled={month === 12}
-            onChange={(e) => setApplyToFollowing(e.target.checked)}
-            className="mt-0.5 size-5 accent-[var(--brand)]"
-          />
-          <span>
-            Áp dụng cho các tháng sau
-            <span className="block text-xs text-muted">
-              {month < 12 ? `Ghi cùng số tiền cho tháng ${month + 1}–12/${year}` : 'Tháng 12 là tháng cuối năm'}
-            </span>
-          </span>
-        </label>
+          Áp dụng cho các tháng sau
+        </Checkbox>
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => setValues(initial)} disabled={!dirty || pending}>
