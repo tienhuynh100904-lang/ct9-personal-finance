@@ -3,6 +3,7 @@ import 'server-only'
 import { getSession } from './auth'
 import type { BudgetRow } from './finance'
 import { habitWindowStart, lastOfMonth } from './habit'
+import { normalizeRemindAt } from './reminders'
 import { isMissingTable } from './supabase/errors'
 import type { HabitData, ItemRecord, ItemUsage, TransactionRecord } from './types'
 
@@ -68,6 +69,19 @@ export async function getItemUsage(): Promise<ItemUsage[]> {
     .order('uses', { ascending: false })
   if (error) throw new Error(`Không tải được thống kê khoản mục: ${error.message}`)
   return data
+}
+
+export type ReminderSettings = { enabled: boolean; remindAt: string }
+
+/** The daily reminder setting, or `null` when the table is missing (schema.sql not re-run yet). */
+export async function getReminderSettings(): Promise<ReminderSettings | null> {
+  const { supabase } = await getSession()
+  const { data, error } = await supabase.from('reminder_settings').select('enabled, remind_at').maybeSingle()
+  if (error) {
+    if (isMissingTable(error)) return null
+    throw new Error(`Không tải được cài đặt nhắc: ${error.message}`)
+  }
+  return { enabled: data?.enabled ?? false, remindAt: normalizeRemindAt(data?.remind_at) }
 }
 
 /** Years the year pickers offer: every year with data, plus this year and next (for planning). */

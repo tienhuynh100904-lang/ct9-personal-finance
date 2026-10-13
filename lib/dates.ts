@@ -25,6 +25,20 @@ export function nowInAppTimeZone(): { iso: string; hour: number } {
   return { iso: isoFormatter.format(now), hour: Number(hourFormatter.format(now)) }
 }
 
+const clockFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: APP_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/** The date and the minute of the day (0-1439) at `at`, both in Vietnam time. */
+export function appClockAt(at: Date): { iso: string; minutes: number } {
+  const parts = clockFormatter.formatToParts(at)
+  const part = (type: 'hour' | 'minute') => Number(parts.find((p) => p.type === type)?.value ?? 0)
+  return { iso: isoFormatter.format(at), minutes: part('hour') * 60 + part('minute') }
+}
+
 type ParamValue = string | string[] | undefined
 
 function firstValue(value: ParamValue): string | undefined {

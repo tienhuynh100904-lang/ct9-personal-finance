@@ -6,8 +6,11 @@ import { getSupabaseConfig } from './env'
 const LOGIN_PATH = '/login'
 /** Pages for signed-out visitors only: a signed-in user is sent to the app instead. */
 const GUEST_PATHS = [LOGIN_PATH, '/forgot-password']
-/** Reachable in either state: /auth/confirm is where the emailed reset link lands. */
-const OPEN_PATHS = ['/auth/confirm']
+/**
+ * Reachable in either state: /auth/confirm is where the emailed reset link lands, and
+ * /api/reminders/run is called by the database's cron job (it checks its own secret).
+ */
+const OPEN_PATHS = ['/auth/confirm', '/api/reminders/run']
 
 /**
  * Refreshes the Supabase session cookie on every request and gates the app:

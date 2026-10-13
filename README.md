@@ -8,7 +8,7 @@
 | **Thu chi** `/transactions` | Sheet *Thu Chi*: thêm / sửa / xoá giao dịch, lọc theo tháng, loại, phân loại, tìm kiếm không dấu, xuất CSV mở được bằng Excel |
 | **Phân tích** `/analytics` | Sheet *Phân loại thu chi*: tổng quan cả năm, 5 biểu đồ, bảng 12 tháng (số tiền / tỷ trọng), chi tiết từng khoản mục |
 | **Ngân sách** `/budget` | Sheet *Lập ngân sách*: dự kiến, thực tế, chênh lệch cho thu nhập, chi tiêu, tiết kiệm/đầu tư |
-| **Cài đặt** `/settings` | **Giao diện Sáng / Tối / Theo thiết bị**, danh mục khoản mục (gợi ý khi nhập), đổi mật khẩu, đăng xuất |
+| **Cài đặt** `/settings` | **Giao diện Sáng / Tối / Theo thiết bị**, **nhắc ghi chép mỗi ngày**, danh mục khoản mục (gợi ý khi nhập), đổi mật khẩu, đăng xuất |
 
 ## Thiết kế để bạn quen ghi chép mỗi ngày
 
@@ -62,7 +62,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-(Project cũ dùng "anon key" cũng được: đặt tên `NEXT_PUBLIC_SUPABASE_ANON_KEY`.) Key này công khai được vì mọi bảng đều có RLS — **không** dùng `service_role`/secret key.
+(Project cũ dùng "anon key" cũng được: đặt tên `NEXT_PUBLIC_SUPABASE_ANON_KEY`.) Key này công khai được vì mọi bảng đều có RLS — **không** dùng `service_role`/secret key cho 2 biến trên. Ngoại lệ duy nhất là tính năng nhắc ghi chép: route cron cần `SUPABASE_SERVICE_ROLE_KEY` (biến riêng, chỉ ở máy chủ, xem mục 5).
 
 ## 3. Deploy lên Vercel
 
@@ -88,6 +88,10 @@ Trong Supabase cần:
 3. **Authentication → Email Templates → Reset Password**: *Subject* = `Đặt lại mật khẩu CT9 Finance`; *Message body* = dán nội dung file [`supabase/email-templates/reset-password.html`](supabase/email-templates/reset-password.html) (email có logo, nút vàng, hỗ trợ chế độ tối; liên kết `{{ .SiteURL }}/auth/confirm?token_hash=…&type=recovery` mở được cả khi bấm trên máy khác với máy yêu cầu).
 
 Nếu giữ mẫu mặc định (`{{ .ConfirmationURL }}`) thì liên kết chỉ mở được trên cùng trình duyệt đã bấm "Gửi liên kết". Lưu ý `{{ .SiteURL }}` là *Site URL* trong Supabase: muốn thử trên máy (localhost) thì tạm đặt Site URL = `http://localhost:3000`.
+
+## 5. Nhắc ghi chép mỗi ngày (thông báo đẩy, tuỳ chọn)
+
+**Cài đặt → Nhắc ghi chép**: bật/tắt, chọn giờ; mỗi ngày một thông báo (ngẫu nhiên trong 10 câu, không lặp lại câu hôm qua), tự bỏ qua nếu hôm nay bạn đã ghi chép. Cần thêm khoá VAPID, bật `pg_cron` + `pg_net` trong Supabase và đặt lịch. Hướng dẫn cài đặt, cách test và xử lý sự cố: **[docs/nhac-ghi-chep.md](docs/nhac-ghi-chep.md)**.
 
 ## Lệnh hữu ích
 

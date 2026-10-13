@@ -205,3 +205,54 @@ create policy "Owner full access" on public.day_marks
 
 revoke all on public.day_marks from anon;
 grant select, insert, update, delete on public.day_marks to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 9) Nhắc ghi chép mỗi ngày (thông báo đẩy): cài đặt của người dùng và
+--    các thiết bị đã đăng ký nhận. Xem docs/nhac-ghi-chep.md.
+--    `last_sent_on` / `last_message` do hệ thống nhắc cập nhật để mỗi ngày
+--    chỉ gửi một lần và không lặp lại câu của hôm qua.
+-- ---------------------------------------------------------------------
+create table if not exists public.reminder_settings (
+  user_id      uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  enabled      boolean not null default false,
+  remind_at    time not null default '21:00'
+               check (extract(second from remind_at) = 0 and extract(minute from remind_at)::int % 15 = 0),
+  last_sent_on date,
+  last_message smallint,
+  updated_at   timestamptz not null default now()
+);
+
+create table if not exists public.push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  endpoint   text not null unique,
+  p256dh     text not null,
+  auth       text not null,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions (user_id);
+
+drop trigger if exists reminder_settings_set_updated_at on public.reminder_settings;
+create trigger reminder_settings_set_updated_at
+  before update on public.reminder_settings
+  for each row execute function public.set_updated_at();
+
+alter table public.reminder_settings enable row level security;
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "Owner full access" on public.reminder_settings;
+create policy "Owner full access" on public.reminder_settings
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Owner full access" on public.push_subscriptions;
+create policy "Owner full access" on public.push_subscriptions
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+revoke all on public.reminder_settings, public.push_subscriptions from anon;
+grant select, insert, update, delete on public.reminder_settings, public.push_subscriptions to authenticated;

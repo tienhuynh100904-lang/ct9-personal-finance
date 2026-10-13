@@ -123,6 +123,63 @@ export type Database = {
         }
         Relationships: []
       }
+      reminder_settings: {
+        Row: {
+          user_id: string
+          enabled: boolean
+          remind_at: string
+          last_sent_on: string | null
+          last_message: number | null
+          updated_at: string
+        }
+        Insert: {
+          user_id?: string
+          enabled?: boolean
+          remind_at?: string
+          last_sent_on?: string | null
+          last_message?: number | null
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          enabled?: boolean
+          remind_at?: string
+          last_sent_on?: string | null
+          last_message?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       item_usage: {

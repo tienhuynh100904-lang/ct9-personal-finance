@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/app/page-header'
 import { ItemsManager } from '@/components/settings/items-manager'
+import { ReminderSettings } from '@/components/settings/reminder-settings'
 import { ThemePicker } from '@/components/settings/theme-picker'
 import { PasswordForm } from '@/components/settings/password-form'
 import { buttonClasses } from '@/components/ui/button'
@@ -10,14 +11,14 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { signOut } from '@/lib/actions/auth'
 import { getSession } from '@/lib/auth'
-import { getItems, getItemUsage } from '@/lib/data'
+import { getItems, getItemUsage, getReminderSettings } from '@/lib/data'
 
 export const metadata: Metadata = { title: 'Cài đặt' }
 
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="Cài đặt" description="Giao diện, khoản mục và tài khoản đăng nhập" />
+      <PageHeader title="Cài đặt" description="Giao diện, nhắc ghi chép, khoản mục và tài khoản đăng nhập" />
       <div className="space-y-4">
         <Card>
           <CardHeader title="Giao diện" description="Mặc định là giao diện sáng. Lựa chọn được lưu trên thiết bị này." />
@@ -25,6 +26,9 @@ export default function SettingsPage() {
             <ThemePicker />
           </CardBody>
         </Card>
+        <Suspense fallback={<Skeleton className="h-64" />}>
+          <Reminders />
+        </Suspense>
         <Suspense fallback={<Skeleton className="h-96" />}>
           <Items />
         </Suspense>
@@ -42,6 +46,22 @@ export default function SettingsPage() {
         </Card>
       </div>
     </>
+  )
+}
+
+async function Reminders() {
+  const settings = await getReminderSettings()
+  return (
+    <Card>
+      <CardHeader title="Nhắc ghi chép" description="Thông báo trên điện thoại để bạn không quên ghi thu chi mỗi ngày." />
+      <CardBody>
+        {settings ? (
+          <ReminderSettings initial={settings} />
+        ) : (
+          <p className="text-sm text-muted">Chưa bật tính năng nhắc. Hãy chạy lại supabase/schema.sql trong Supabase.</p>
+        )}
+      </CardBody>
+    </Card>
   )
 }
 
