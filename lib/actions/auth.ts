@@ -1,7 +1,9 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getSession } from '../auth'
+import { clearPasswordReset, hasPasswordReset } from '../password-reset'
 import { createClient } from '../supabase/server'
 import { getSupabaseConfig } from '../supabase/env'
 import type { ActionResult } from './result'
@@ -94,15 +96,92 @@ export async function changePassword(input: {
   }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
-  if (error) {
-    if (error.code === 'same_password') {
-      return { ok: false, error: 'Mật khẩu mới phải khác mật khẩu hiện tại.', fieldErrors: { newPassword: 'Trùng mật khẩu cũ.' } }
-    }
-    if (error.code === 'weak_password') {
-      return { ok: false, error: 'Mật khẩu mới quá yếu, hãy dùng mật khẩu dài và khó đoán hơn.', fieldErrors: { newPassword: 'Quá yếu.' } }
-    }
-    console.error('changePassword failed', error)
-    return { ok: false, error: 'Không đổi được mật khẩu. Vui lòng thử lại.' }
-  }
+  if (error) return passwordUpdateFailure(error, 'changePassword')
   return { ok: true, message: 'Đã đổi mật khẩu.' }
+}
+
+function passwordUpdateFailure(
+  error: { code?: string },
+  source: string,
+): { ok: false; error: string; fieldErrors?: { newPassword?: string } } {
+  if (error.code === 'same_password') {
+    return { ok: false, error: 'Mật khẩu mới phải khác mật khẩu hiện tại.', fieldErrors: { newPassword: 'Trùng mật khẩu cũ.' } }
+  }
+  if (error.code === 'weak_password') {
+    return { ok: false, error: 'Mật khẩu mới quá yếu, hãy dùng mật khẩu dài và khó đoán hơn.', fieldErrors: { newPassword: 'Quá yếu.' } }
+  }
+  console.error(`${source} failed`, error)
+  return { ok: false, error: 'Không đổi được mật khẩu. Vui lòng thử lại.' }
+}
+
+export type ResetRequestState = {
+  error: string | null
+  email: string
+  /** Set (to the server time in ms) once a link has been sent. */
+  sentAt: number | null
+}
+
+/**
+ * Step 1 of "Quên mật khẩu": emails a reset link. The answer is the same whether or not the
+ * address has an account, so the form cannot be used to find out which emails are registered.
+ */
+export async function requestPasswordReset(_prev: ResetRequestState, formData: FormData): Promise<ResetRequestState> {
+  const email = String(formData.get('email') ?? '').trim()
+
+  if (!getSupabaseConfig()) {
+    return { email, sentAt: null, error: 'Ứng dụng chưa được cấu hình Supabase (xem README).' }
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { email, sentAt: null, error: 'Nhập địa chỉ email hợp lệ.' }
+  }
+
+  // Used only by Supabase's default (`code`) email template; it must be in the redirect allow-list.
+  const requestHeaders = await headers()
+  const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host')
+  const proto = requestHeaders.get('x-forwarded-proto') ?? (host?.startsWith('localhost') ? 'http' : 'https')
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: host ? `${proto}://${host}/auth/confirm` : undefined,
+  })
+  if (error) {
+    if (error.code === 'over_email_send_rate_limit' || error.code === 'over_request_rate_limit') {
+      return { email, sentAt: null, error: 'Bạn vừa yêu cầu gần đây. Vui lòng đợi một phút rồi thử lại.' }
+    }
+    console.error('requestPasswordReset failed', error)
+    return { email, sentAt: null, error: 'Không gửi được email. Vui lòng thử lại sau.' }
+  }
+  return { email, sentAt: Date.now(), error: null }
+}
+
+/**
+ * Step 3 of "Quên mật khẩu": sets the new password. Allowed only right after a reset link was
+ * opened (see lib/password-reset.ts). Other devices are signed out so a lost phone loses access.
+ */
+export async function resetPassword(input: {
+  newPassword: string
+}): Promise<
+  | ActionResult<{ newPassword?: string }>
+  /** The reset window ran out (or never opened): the client sends the user back to ask again. */
+  | { ok: false; error: string; expired: true }
+> {
+  if (!(await hasPasswordReset())) {
+    return { ok: false, expired: true, error: 'Phiên đặt lại mật khẩu đã hết hạn. Hãy yêu cầu liên kết mới.' }
+  }
+  const { supabase } = await getSession()
+  const newPassword = typeof input?.newPassword === 'string' ? input.newPassword : ''
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return {
+      ok: false,
+      error: `Mật khẩu mới cần ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`,
+      fieldErrors: { newPassword: `Ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` },
+    }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) return passwordUpdateFailure(error, 'resetPassword')
+
+  await supabase.auth.signOut({ scope: 'others' })
+  await clearPasswordReset()
+  return { ok: true, message: 'Đã đặt lại mật khẩu.' }
 }

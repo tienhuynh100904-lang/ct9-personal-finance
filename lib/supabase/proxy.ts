@@ -4,6 +4,10 @@ import type { Database } from './database.types'
 import { getSupabaseConfig } from './env'
 
 const LOGIN_PATH = '/login'
+/** Pages for signed-out visitors only: a signed-in user is sent to the app instead. */
+const GUEST_PATHS = [LOGIN_PATH, '/forgot-password']
+/** Reachable in either state: /auth/confirm is where the emailed reset link lands. */
+const OPEN_PATHS = ['/auth/confirm']
 
 /**
  * Refreshes the Supabase session cookie on every request and gates the app:
@@ -12,12 +16,26 @@ const LOGIN_PATH = '/login'
  */
 export async function updateSession(request: NextRequest) {
   const { pathname, search } = request.nextUrl
-  const isLoginPage = pathname === LOGIN_PATH
+  const isGuestPage = GUEST_PATHS.includes(pathname)
+  const isPublic = isGuestPage || OPEN_PATHS.includes(pathname)
   const config = getSupabaseConfig()
+
+  // When the redirect in a reset email is not in Supabase's allow-list (or the template still has
+  // the default link), the visitor lands on the Site URL with the result in the query string.
+  // Forward it to where it is handled instead of dropping them on the login page.
+  if (pathname === '/' || pathname === LOGIN_PATH) {
+    const code = request.nextUrl.searchParams.get('code')
+    if (code) {
+      const url = new URL('/auth/confirm', request.url)
+      url.searchParams.set('code', code)
+      return NextResponse.redirect(url)
+    }
+    if (request.nextUrl.searchParams.has('error_code')) return redirectTo(request, '/forgot-password?error=expired')
+  }
 
   if (!config) {
     // Without configuration nobody can sign in; the login page explains what is missing.
-    return isLoginPage ? NextResponse.next() : redirectTo(request, LOGIN_PATH)
+    return isPublic ? NextResponse.next() : redirectTo(request, LOGIN_PATH)
   }
 
   let response = NextResponse.next({ request })
@@ -41,12 +59,12 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims()
   const signedIn = Boolean(data?.claims?.sub)
 
-  if (!signedIn && !isLoginPage) {
+  if (!signedIn && !isPublic) {
     // Keep deep links such as /?add=expense (app-icon shortcuts) across the login round trip.
     const next = pathname === '/' && !search ? '' : `?next=${encodeURIComponent(pathname + search)}`
     return withCookies(redirectTo(request, `${LOGIN_PATH}${next}`), response)
   }
-  if (signedIn && isLoginPage) {
+  if (signedIn && isGuestPage) {
     return withCookies(redirectTo(request, '/'), response)
   }
   return response

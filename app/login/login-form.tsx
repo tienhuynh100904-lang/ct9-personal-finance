@@ -1,12 +1,23 @@
 'use client'
 
 import { Eye, EyeOff, LoaderCircle } from 'lucide-react'
+import Link from 'next/link'
 import { useActionState, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { signIn, type LoginState } from '@/lib/actions/auth'
 
 const initialState: LoginState = { error: null, email: '' }
+
+function ForgotLink() {
+  return (
+    <span className="flex justify-end">
+      <Link href="/forgot-password" className="-my-1 inline-flex min-h-11 items-center rounded-lg text-sm font-medium text-brand-ink hover:underline">
+        Quên mật khẩu?
+      </Link>
+    </span>
+  )
+}
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(signIn, initialState)
@@ -44,7 +55,7 @@ export function LoginForm() {
           autoFocus
         />
       </Field>
-      <Field label="Mật khẩu" htmlFor="password">
+      <Field label="Mật khẩu" htmlFor="password" hint={<ForgotLink />}>
         <div className="relative">
           <Input
             id="password"

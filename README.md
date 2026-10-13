@@ -77,6 +77,18 @@ Trên điện thoại: mở trang web → *Thêm vào màn hình chính* để d
 
 > Supabase gói miễn phí sẽ **tạm dừng project sau 7 ngày không có truy cập**; khi đó app báo "Không tải được dữ liệu" — vào dashboard Supabase bấm *Restore*.
 
+## 4. Quên mật khẩu (cần cấu hình Supabase một lần)
+
+Trang đăng nhập có link **Quên mật khẩu?** → `/forgot-password` (nhập email) → email có liên kết → `/auth/confirm` kiểm tra liên kết → `/reset-password` (đặt mật khẩu mới, các thiết bị khác bị đăng xuất). Trang đặt mật khẩu chỉ mở được ngay sau khi bấm liên kết trong email (cookie 15 phút); người đã đăng nhập không vào thẳng được để bỏ qua bước "mật khẩu hiện tại".
+
+Trong Supabase cần:
+
+1. **Project Settings → Authentication → SMTP Settings**: bật SMTP riêng (Resend, Brevo, Gmail…). SMTP mặc định của Supabase chỉ gửi được vài email mỗi giờ.
+2. **Authentication → URL Configuration**: *Site URL* = địa chỉ Vercel; *Redirect URLs* thêm `https://<tên-miền-của-bạn>/**` và `http://localhost:3000/**`.
+3. **Authentication → Email Templates → Reset Password**: *Subject* = `Đặt lại mật khẩu CT9 Finance`; *Message body* = dán nội dung file [`supabase/email-templates/reset-password.html`](supabase/email-templates/reset-password.html) (email có logo, nút vàng, hỗ trợ chế độ tối; liên kết `{{ .SiteURL }}/auth/confirm?token_hash=…&type=recovery` mở được cả khi bấm trên máy khác với máy yêu cầu).
+
+Nếu giữ mẫu mặc định (`{{ .ConfirmationURL }}`) thì liên kết chỉ mở được trên cùng trình duyệt đã bấm "Gửi liên kết". Lưu ý `{{ .SiteURL }}` là *Site URL* trong Supabase: muốn thử trên máy (localhost) thì tạm đặt Site URL = `http://localhost:3000`.
+
 ## Lệnh hữu ích
 
 | Lệnh | Việc |
