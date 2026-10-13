@@ -20,7 +20,7 @@ export default function AppError({ error, retry }: { error: Error & { digest?: s
       </p>
       {error.digest ? <p className="mt-2 text-xs text-muted">Mã lỗi: {error.digest}</p> : null}
       <Button className="mt-5" onClick={() => retry()}>
-        <RotateCcw className="size-4" aria-hidden />
+        <RotateCcw className="size-4 transition-transform duration-500 group-hover:-rotate-180" aria-hidden />
         Thử lại
       </Button>
     </div>

@@ -182,3 +182,26 @@ revoke execute on function public.rename_item(text, text, text, boolean) from pu
 grant select, insert, update, delete on public.transactions, public.budgets, public.items to authenticated;
 grant select on public.item_usage to authenticated;
 grant execute on function public.rename_item(text, text, text, boolean) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 8) Ngày đánh dấu "Không chi tiêu": giữ chuỗi ngày ghi chép không bị
+--    ngắt vào những ngày bạn thật sự không chi gì. Mỗi ngày tối đa 1 dòng.
+-- ---------------------------------------------------------------------
+create table if not exists public.day_marks (
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  day        date not null,
+  kind       text not null default 'no_spend' check (kind in ('no_spend')),
+  created_at timestamptz not null default now(),
+  primary key (user_id, day)
+);
+
+alter table public.day_marks enable row level security;
+
+drop policy if exists "Owner full access" on public.day_marks;
+create policy "Owner full access" on public.day_marks
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+revoke all on public.day_marks from anon;
+grant select, insert, update, delete on public.day_marks to authenticated;

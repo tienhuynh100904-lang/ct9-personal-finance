@@ -4,7 +4,8 @@ import { LoaderCircle } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
-import { toast } from '@/components/ui/toast'
+import { toast } from '@/lib/toast'
+import { runAction } from '@/lib/run-action'
 import { changePassword } from '@/lib/actions/auth'
 
 export function PasswordForm() {
@@ -21,15 +22,16 @@ export function PasswordForm() {
     }
     setErrors({})
     startTransition(async () => {
-      const result = await changePassword({ currentPassword, newPassword })
+      const result = await runAction(() => changePassword({ currentPassword, newPassword }))
+      if (!result) return
       if (result.ok) {
-        toast(result.message ?? 'Đã đổi mật khẩu.')
+        toast.success('Đã đổi mật khẩu', { description: 'Lần đăng nhập sau hãy dùng mật khẩu mới.' })
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')
       } else {
         setErrors(result.fieldErrors ?? {})
-        toast(result.error, 'error')
+        toast.error(result.error)
       }
     })
   }

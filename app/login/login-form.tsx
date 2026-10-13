@@ -61,7 +61,7 @@ export function LoginForm() {
             aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             aria-pressed={showPassword}
           >
-            {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+            {showPassword ? <EyeOff key="hide" className="icon-pop size-4" aria-hidden /> : <Eye key="show" className="icon-pop size-4" aria-hidden />}
           </button>
         </div>
       </Field>

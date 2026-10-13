@@ -116,7 +116,7 @@ export function ChartCard({
                     aria-checked={view === value}
                     onClick={() => setView(value)}
                     className={cn(
-                      'grid size-7 place-items-center rounded-md transition-colors',
+                      'grid size-8 place-items-center rounded-md transition-colors pointer-coarse:size-11',
                       view === value ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink',
                     )}
                     title={label}

@@ -1,10 +1,18 @@
 @import "tailwindcss";
 
 /*
- * Design tokens. Chart series colors come from the validated data-viz palette
- * (CVD-safe in both themes); UI chrome stays neutral so the data carries color.
+ * Design tokens — LIGHT is the designed default; dark is a mapped variant.
+ * The theme is applied by an inline <head> script (see lib/theme.ts) that sets
+ * data-theme on <html> before first paint, so there are exactly two blocks here.
+ * The selectors work on any element, so theme-picker previews can scope a theme.
+ *
+ * Brand gold is UI chrome only (buttons, nav, hero). Gold is a light color, so it is
+ * used as a FILL with dark text (--on-brand); text, borders and focus rings use the
+ * deep amber --brand-ink / --focus instead, which pass contrast on every surface.
+ * Chart series colors (--c-*) come from the CVD-validated palette and never change.
  */
-:root {
+:root,
+[data-theme="light"] {
   color-scheme: light;
   --bg: #f6f6f3;
   --surface: #ffffff;
@@ -12,17 +20,35 @@
   --surface-3: #e9e8e2;
   --ink: #0b0b0b;
   --ink-2: #52514e;
-  --muted: #6f6e69;
+  --muted: #66655f;
   --line: rgba(11, 11, 11, 0.1);
   --line-strong: rgba(11, 11, 11, 0.2);
+  --field-border: #8a8983;
   --grid: #e1e0d9;
   --axis: #c3c2b7;
-  --accent: #2a78d6;
 
-  /* text tokens for signed values (WCAG ≥ 4.5:1 on the surface) */
+  --brand: #fcd34d;
+  --brand-hover: #f6c22a;
+  --on-brand: #1c1500;
+  --brand-soft: #fdf4d3;
+  --brand-ink: #7a5200;
+  --brand-edge: rgba(122, 82, 0, 0.35);
+  --focus: #7a5200;
+  --accent: var(--brand-ink);
+
+  /* text tokens for signed values (WCAG ≥ 4.5:1) */
   --positive: #006300;
-  --negative: #d03b3b;
-  --warning-text: #9a6700;
+  --negative: #c4362f;
+  --warning-text: #8a5d00;
+  --danger: #c4362f;
+  --danger-hover: #a82b25;
+
+  --backdrop: rgba(11, 11, 11, 0.4);
+  --hero-bg: linear-gradient(180deg, var(--brand-soft) 0%, var(--surface) 72%);
+  --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.04), 0 1px 1px rgba(11, 11, 11, 0.03);
+  --shadow-2: 0 1px 2px rgba(11, 11, 11, 0.04), 0 6px 20px -6px rgba(11, 11, 11, 0.1);
+  --shadow-fab: 0 10px 22px -8px rgba(176, 125, 0, 0.55);
+  --shadow-sheet: 0 -8px 40px rgba(11, 11, 11, 0.16);
 
   /* chart series */
   --c-income: #1baf7a;
@@ -42,38 +68,69 @@
   --s-critical: #d03b3b;
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232321;
+  --surface-3: #2e2e2b;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #9c9a94;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --field-border: #6b6a65;
+  --grid: #2c2c2a;
+  --axis: #383835;
+
+  --brand: #f7c948;
+  --brand-hover: #ffd966;
+  --on-brand: #1c1500;
+  --brand-soft: #2b2410;
+  --brand-ink: #f7cf6a;
+  --brand-edge: transparent;
+  --focus: #f7c948;
+  --accent: var(--brand-ink);
+
+  --positive: #0ca30c;
+  --negative: #e66767;
+  --warning-text: #fab219;
+  --danger: #b8332c;
+  --danger-hover: #9e2a24;
+
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --hero-bg: linear-gradient(180deg, var(--surface) 0%, var(--surface) 100%);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  --shadow-fab: 0 10px 22px -8px rgba(0, 0, 0, 0.7);
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.5);
+
+  --c-income: #199e70;
+  --c-expense: #d95926;
+  --c-saving: #3987e5;
+  --c-surplus: #f0efec;
+  --c-planned: #5c5b57;
+  --c-essential: #9085e9;
+  --c-non-essential: #d55181;
+  --c-incidental: #c98500;
+  --c-rate-bar: #184f95;
+  --c-rate-line: #86b6ef;
+}
+
+/* Layout tokens live outside the theme blocks so theme scoping can never override them. */
+:root {
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --header-h: calc(3.5rem + env(safe-area-inset-top));
+}
+
+@media (min-width: 1024px) {
   :root {
-    color-scheme: dark;
-    --bg: #0d0d0d;
-    --surface: #1a1a19;
-    --surface-2: #232321;
-    --surface-3: #2e2e2b;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --muted: #898781;
-    --line: rgba(255, 255, 255, 0.1);
-    --line-strong: rgba(255, 255, 255, 0.2);
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --accent: #3987e5;
-
-    --positive: #0ca30c;
-    --negative: #e66767;
-    --warning-text: #fab219;
-
-    --c-income: #199e70;
-    --c-expense: #d95926;
-    --c-saving: #3987e5;
-    --c-surplus: #f0efec;
-    --c-planned: #5c5b57;
-    --c-essential: #9085e9;
-    --c-non-essential: #d55181;
-    --c-incidental: #c98500;
-    --c-rate-bar: #184f95;
-    --c-rate-line: #86b6ef;
+    --header-h: 0px;
   }
 }
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme inline {
   --color-bg: var(--bg);
@@ -85,10 +142,20 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-field: var(--field-border);
   --color-accent: var(--accent);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-on-brand: var(--on-brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-edge: var(--brand-edge);
+  --color-focus: var(--focus);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-warning: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
   --color-income: var(--c-income);
   --color-expense: var(--c-expense);
   --color-saving: var(--c-saving);
@@ -98,6 +165,7 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
@@ -106,30 +174,50 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 
-  /* Native <dialog>: bottom sheet on phones, centered card from `sm` up. */
+  button,
+  a,
+  [role="radio"] {
+    touch-action: manipulation;
+  }
+
+  /* Installed as an app: stop rubber-banding behind the fixed header and nav. */
+  @media (display-mode: standalone) {
+    html {
+      overscroll-behavior-y: none;
+    }
+  }
+
+  /*
+   * Native <dialog>: bottom sheet on phones (header, scrolling body and a sticky
+   * footer so the primary button never hides behind the keyboard), centered card
+   * from `sm` up.
+   */
   dialog.app-dialog {
     margin: auto auto 0;
     width: 100%;
     max-width: 100%;
-    max-height: 92dvh;
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - 0.5rem));
     padding: 0;
     border: 0;
-    border-radius: 1.25rem 1.25rem 0 0;
+    border-radius: 1.5rem 1.5rem 0 0;
     background: var(--surface);
     color: var(--ink);
-    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-sheet);
+    overflow: hidden;
   }
 
   dialog.app-dialog[open] {
-    animation: sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    animation: sheet-in 240ms var(--ease-out);
   }
 
   dialog.app-dialog::backdrop {
-    background: rgba(10, 10, 10, 0.45);
+    background: var(--backdrop);
     backdrop-filter: blur(2px);
   }
 
@@ -137,8 +225,8 @@
     dialog.app-dialog {
       margin: auto;
       max-width: 32rem;
-      border-radius: 1.25rem;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+      max-height: min(85dvh, calc(100dvh - 2rem));
+      border-radius: 1.5rem;
     }
 
     dialog.app-dialog[open] {
@@ -147,8 +235,13 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    dialog.app-dialog[open] {
-      animation: none;
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 }
@@ -167,14 +260,294 @@
   }
 }
 
-@keyframes toast-in {
+@keyframes cell-pop {
   from {
-    transform: translateY(8px);
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+}
+
+/* ---- Icon motion (lucide icons) ------------------------------------------------ */
+@keyframes icon-pop {
+  0% {
+    transform: scale(0.3) rotate(-24deg);
     opacity: 0;
   }
+  60% {
+    transform: scale(1.22) rotate(6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes icon-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(-3px) rotate(-6deg);
+  }
+  36% {
+    transform: translateX(3px) rotate(6deg);
+  }
+  54% {
+    transform: translateX(-2px) rotate(-4deg);
+  }
+  72% {
+    transform: translateX(2px) rotate(3deg);
+  }
+}
+
+@keyframes icon-swing {
+  0% {
+    transform: rotate(-18deg) scale(0.6);
+    opacity: 0;
+  }
+  35% {
+    transform: rotate(14deg) scale(1.1);
+    opacity: 1;
+  }
+  65% {
+    transform: rotate(-8deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+
+@keyframes icon-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes icon-sway {
+  0%,
+  100% {
+    transform: rotate(-9deg);
+  }
+  50% {
+    transform: rotate(9deg);
+  }
+}
+
+@keyframes icon-beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes icon-wiggle {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes icon-ripple {
+  from {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+/* One-shot entrance when the icon first appears (or its parent becomes active). */
+.icon-pop {
+  animation: icon-pop 520ms var(--ease-spring) both;
+}
+.icon-shake {
+  animation: icon-shake 520ms ease-in-out both;
+}
+.icon-swing {
+  animation: icon-swing 640ms ease-out both;
+}
+/* Gentle loops for icons that carry a message (empty states, the no-spend leaf, warnings). */
+.icon-float {
+  animation: icon-float 3.2s ease-in-out infinite;
+}
+.icon-sway {
+  transform-origin: 50% 100%;
+  animation: icon-sway 3.6s ease-in-out infinite;
+}
+.icon-beat {
+  animation: icon-beat 1.8s ease-in-out infinite;
+}
+.icon-spin-slow {
+  animation: icon-spin 14s linear infinite;
+}
+/* Hover/press reactions: put `group` on the control and `icon-hover-*` on the icon. */
+.group:hover .icon-hover-wiggle,
+.group:focus-visible .icon-hover-wiggle {
+  animation: icon-wiggle 420ms ease-in-out;
+}
+.group:hover .icon-hover-spin,
+.group:focus-visible .icon-hover-spin {
+  animation: icon-spin 700ms ease-in-out;
+}
+
+/* ---- Toasts (sonner) ---------------------------------------------------------- */
+[data-sonner-toaster] {
+  --width: min(24rem, calc(100vw - 1.5rem));
+  font-family: inherit;
+}
+
+:root [data-sonner-toast][data-styled='true'] {
+  --toast-accent: var(--brand-ink);
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 40px 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  box-shadow: inset 4px 0 0 var(--toast-accent), var(--shadow-2);
+  overflow: hidden;
+}
+:root [data-sonner-toast][data-styled='true']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+:root [data-sonner-toast][data-type='success'] {
+  --toast-accent: var(--positive);
+}
+:root [data-sonner-toast][data-type='error'] {
+  --toast-accent: var(--negative);
+}
+:root [data-sonner-toast][data-type='warning'] {
+  --toast-accent: var(--s-warning);
+}
+
+:root [data-sonner-toast][data-styled='true'] [data-icon] {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  justify-content: center;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--toast-accent) 14%, var(--surface));
+  color: var(--toast-accent);
+}
+:root [data-sonner-toast][data-styled='true'] [data-icon] svg {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+/* Each tone animates its icon once, so a new toast feels alive without nagging. */
+:root [data-sonner-toast][data-type='success'] [data-icon] svg {
+  animation: icon-pop 520ms var(--ease-spring) 120ms both;
+}
+:root [data-sonner-toast][data-type='error'] [data-icon] svg {
+  animation: icon-shake 520ms ease-in-out 120ms both;
+}
+:root [data-sonner-toast][data-type='info'] [data-icon] svg,
+:root [data-sonner-toast][data-type='warning'] [data-icon] svg {
+  animation: icon-swing 640ms ease-out 120ms both;
+}
+:root [data-sonner-toast][data-type='success'] [data-icon]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 2px solid var(--toast-accent);
+  animation: icon-ripple 700ms ease-out 120ms both;
+  pointer-events: none;
+}
+
+:root [data-sonner-toast][data-styled='true'] [data-content] {
+  gap: 2px;
+  padding-top: 2px;
+}
+:root [data-sonner-toast][data-styled='true'] [data-title] {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
+}
+:root [data-sonner-toast][data-styled='true'] [data-description] {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+:root [data-sonner-toast][data-styled='true'] [data-button] {
+  height: 36px;
+  margin: 6px 0 0 -8px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--brand-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+:root [data-sonner-toast][data-styled='true'] [data-button]:hover {
+  background: var(--brand-soft);
+}
+/* Sonner puts the action button beside the text; stack it under the message instead. */
+:root [data-sonner-toast][data-styled='true']:has([data-button]) {
+  flex-wrap: wrap;
+}
+:root [data-sonner-toast][data-styled='true'] [data-button]:first-of-type {
+  order: 3;
+  margin-left: 40px;
+  flex-basis: auto;
+}
+
+/* The close button sits inside the card (always visible, so it works on touch too). */
+:root [data-sonner-toast][data-styled='true'] [data-close-button] {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  width: 28px;
+  height: 28px;
+  transform: none;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 1;
+}
+:root [data-sonner-toast][data-styled='true'] [data-close-button]:hover,
+:root [data-sonner-toast][data-styled='true']:hover [data-close-button]:hover {
+  background: var(--surface-2);
+  border: none;
+  color: var(--ink);
 }
 
 @utility scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--axis) transparent;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

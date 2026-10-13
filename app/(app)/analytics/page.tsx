@@ -8,7 +8,7 @@ import { resolveYear } from '@/lib/period'
 
 export const metadata: Metadata = { title: 'Phân tích' }
 
-export default function AnalysisPage({ searchParams }: PageProps<'/phan-tich'>) {
+export default function AnalysisPage({ searchParams }: PageProps<'/analytics'>) {
   return (
     <>
       <PageHeader title="Phân tích" description="Phân loại thu chi theo khoản mục, tỷ trọng và xu hướng cả năm" />
@@ -19,7 +19,7 @@ export default function AnalysisPage({ searchParams }: PageProps<'/phan-tich'>) 
   )
 }
 
-async function Analysis({ searchParams }: Pick<PageProps<'/phan-tich'>, 'searchParams'>) {
+async function Analysis({ searchParams }: Pick<PageProps<'/analytics'>, 'searchParams'>) {
   const { year, today } = await resolveYear(searchParams)
   const [transactions, years] = await Promise.all([getTransactionsForYear(year), getYearOptions(today.year)])
   return (

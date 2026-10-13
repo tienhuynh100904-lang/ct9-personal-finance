@@ -11,10 +11,20 @@ type AmountInputProps = Omit<ComponentProps<'input'>, 'value' | 'onChange' | 'ty
   onValueChange: (value: number) => void
   /** Shows a "000" key that multiplies by 1.000 — handy when typing on a phone. */
   showThousands?: boolean
+  /** Select the whole amount on focus, so typing replaces a prefilled value. */
+  selectOnFocus?: boolean
 }
 
 /** Money input that keeps dot thousands separators while typing: 1250000 → "1.250.000". */
-export function AmountInput({ value, onValueChange, showThousands = true, className, ...props }: AmountInputProps) {
+export function AmountInput({
+  value,
+  onValueChange,
+  showThousands = true,
+  selectOnFocus = false,
+  className,
+  onFocus,
+  ...props
+}: AmountInputProps) {
   return (
     <div className="relative">
       <input
@@ -24,7 +34,11 @@ export function AmountInput({ value, onValueChange, showThousands = true, classN
         placeholder="0"
         value={value ? formatNumber(value) : ''}
         onChange={(e) => onValueChange(Math.min(parseAmount(e.target.value), MAX_AMOUNT))}
-        className={cn(inputClasses, 'tabular-nums', showThousands ? 'pr-24' : 'pr-9', className)}
+        onFocus={(e) => {
+          if (selectOnFocus) e.currentTarget.select()
+          onFocus?.(e)
+        }}
+        className={cn(inputClasses, 'tabular-nums', showThousands ? 'pr-28' : 'pr-9', className)}
         {...props}
       />
       <div className="absolute inset-y-0 right-2 flex items-center gap-1.5">
@@ -34,7 +48,7 @@ export function AmountInput({ value, onValueChange, showThousands = true, classN
             tabIndex={-1}
             disabled={!value || value * 1000 > MAX_AMOUNT}
             onClick={() => onValueChange(value * 1000)}
-            className="h-7 rounded-md bg-surface-2 px-2 text-xs font-semibold text-ink-2 hover:bg-surface-3 disabled:opacity-40"
+            className="h-9 rounded-lg bg-surface-2 px-3 text-sm font-semibold text-ink-2 hover:bg-surface-3 active:bg-surface-3 disabled:opacity-40"
             aria-label="Thêm 3 số 0"
           >
             000

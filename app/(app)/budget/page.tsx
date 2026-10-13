@@ -8,7 +8,7 @@ import { defaultMonthFor, resolveYear } from '@/lib/period'
 
 export const metadata: Metadata = { title: 'Ngân sách' }
 
-export default function BudgetPage({ searchParams }: PageProps<'/ngan-sach'>) {
+export default function BudgetPage({ searchParams }: PageProps<'/budget'>) {
   return (
     <>
       <PageHeader
@@ -22,7 +22,7 @@ export default function BudgetPage({ searchParams }: PageProps<'/ngan-sach'>) {
   )
 }
 
-async function Budget({ searchParams }: Pick<PageProps<'/ngan-sach'>, 'searchParams'>) {
+async function Budget({ searchParams }: Pick<PageProps<'/budget'>, 'searchParams'>) {
   const { year, today } = await resolveYear(searchParams)
   const [transactions, budgetRows, years] = await Promise.all([
     getTransactionsForYear(year),

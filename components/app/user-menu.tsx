@@ -19,11 +19,11 @@ export async function UserMenu() {
       <form action={signOut}>
         <button
           type="submit"
-          className="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+          className="group grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           aria-label="Đăng xuất"
           title="Đăng xuất"
         >
-          <LogOut className="size-[18px]" aria-hidden />
+          <LogOut className="size-[18px] transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
         </button>
       </form>
     </div>

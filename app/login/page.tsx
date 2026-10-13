@@ -18,7 +18,7 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-muted">Đăng nhập để quản lý tài chính cá nhân</p>
         </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow-1)]">
           {configured ? null : (
             <div role="alert" className="mb-5 flex gap-2.5 rounded-xl bg-surface-2 p-3 text-sm">
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />

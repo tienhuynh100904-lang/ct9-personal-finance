@@ -29,18 +29,20 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-bg/90 px-4 backdrop-blur lg:hidden">
-        <Logo />
-        <Link
-          href="/cai-dat"
-          className="grid size-10 place-items-center rounded-xl text-ink-2 hover:bg-surface-2"
-          aria-label="Cài đặt"
-        >
-          <Settings className="size-5" aria-hidden />
-        </Link>
+      <header className="sticky top-0 z-30 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+        <div className="flex h-14 items-center justify-between pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]">
+          <Logo />
+          <Link
+            href="/settings"
+            className="group grid size-11 place-items-center rounded-xl text-ink-2 hover:bg-surface-2 active:bg-surface-2"
+            aria-label="Cài đặt"
+          >
+            <Settings className="size-5 transition-transform duration-500 group-hover:rotate-90" aria-hidden />
+          </Link>
+        </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-12">
+      <main className="mx-auto w-full max-w-6xl pt-4 pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(7rem+env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-12">
         {children}
       </main>
 

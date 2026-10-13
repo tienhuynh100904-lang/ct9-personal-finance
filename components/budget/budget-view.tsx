@@ -9,8 +9,9 @@ import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Segmented } from '@/components/ui/choice'
-import { Select } from '@/components/ui/field'
-import { toast } from '@/components/ui/toast'
+import { MonthPicker } from '@/components/ui/month-picker'
+import { toast } from '@/lib/toast'
+import { runAction } from '@/lib/run-action'
 import { saveBudgetMonth } from '@/lib/actions/budgets'
 import { CATEGORY_META, MEASURE_COLOR } from '@/lib/categories'
 import { cn } from '@/lib/cn'
@@ -28,7 +29,7 @@ import {
   type BudgetRow,
   type YearReport,
 } from '@/lib/finance'
-import { formatSignedVND, formatVND, MONTH_LABELS } from '@/lib/format'
+import { formatSignedVND, formatVND } from '@/lib/format'
 import type { TransactionRecord } from '@/lib/types'
 
 type View = 'planned' | 'actual' | 'variance'
@@ -131,14 +132,17 @@ function BudgetEditor({
 
   function save() {
     startTransition(async () => {
-      const result = await saveBudgetMonth({
-        year,
-        month,
-        values,
-        applyToFollowingMonths: applyToFollowing && month < 12,
-      })
-      if (result.ok) toast(result.message ?? 'Đã lưu ngân sách.')
-      else toast(result.error, 'error')
+      const result = await runAction(() =>
+        saveBudgetMonth({
+          year,
+          month,
+          values,
+          applyToFollowingMonths: applyToFollowing && month < 12,
+        }),
+      )
+      if (!result) return
+      if (result.ok) toast.success('Đã lưu ngân sách', { description: result.message })
+      else toast.error(result.error)
     })
   }
 
@@ -154,23 +158,18 @@ function BudgetEditor({
         title={`Kế hoạch tháng · năm ${year}`}
         description="Nhập số tiền dự kiến; thực tế được tính từ sổ thu chi"
         action={
-          <div className="w-32">
-            <Select
-              aria-label="Chọn tháng"
-              value={month}
-              onChange={(e) => {
-                if (dirty && !window.confirm('Bỏ các thay đổi chưa lưu của tháng này?')) return
-                onMonthChange(Number(e.target.value))
-              }}
-              className="h-9"
-            >
-              {MONTH_LABELS.map((label, i) => (
-                <option key={label} value={i + 1}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <MonthPicker
+            className="w-36"
+            label="Chọn tháng"
+            compact
+            year={year}
+            month={month}
+            years={[year]}
+            onChange={(_, next) => {
+              if (dirty && !window.confirm('Bỏ các thay đổi chưa lưu của tháng này?')) return
+              onMonthChange(Number(next))
+            }}
+          />
         }
       />
       <form
@@ -237,7 +236,7 @@ function BudgetEditor({
             checked={applyToFollowing && month < 12}
             disabled={month === 12}
             onChange={(e) => setApplyToFollowing(e.target.checked)}
-            className="mt-0.5 size-4 accent-[var(--ink)]"
+            className="mt-0.5 size-5 accent-[var(--brand)]"
           />
           <span>
             Áp dụng cho các tháng sau
@@ -249,7 +248,7 @@ function BudgetEditor({
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => setValues(initial)} disabled={!dirty || pending}>
-            <RotateCcw className="size-4" aria-hidden />
+            <RotateCcw className="size-4 transition-transform duration-500 group-hover:-rotate-180" aria-hidden />
             Hoàn tác
           </Button>
           <Button type="submit" disabled={pending || (!dirty && !applyToFollowing)} className="min-w-32">

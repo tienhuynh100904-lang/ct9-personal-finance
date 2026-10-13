@@ -2,11 +2,11 @@ import { CircleAlert, CircleCheck, TriangleAlert } from 'lucide-react'
 import { budgetStatus, type BudgetStatus } from '@/lib/finance'
 import { formatPercent, formatVND } from '@/lib/format'
 
-const STATUS: Record<BudgetStatus, { fill?: string; text: string; Icon: typeof CircleCheck }> = {
-  ok: { text: 'text-muted', Icon: CircleCheck },
-  near: { fill: 'var(--s-warning)', text: 'text-warning', Icon: TriangleAlert },
-  over: { fill: 'var(--s-critical)', text: 'text-negative', Icon: CircleAlert },
-  unplanned: { fill: 'var(--s-warning)', text: 'text-warning', Icon: TriangleAlert },
+const STATUS: Record<BudgetStatus, { fill?: string; text: string; motion: string; Icon: typeof CircleCheck }> = {
+  ok: { text: 'text-muted', motion: 'icon-pop', Icon: CircleCheck },
+  near: { fill: 'var(--s-warning)', text: 'text-warning', motion: 'icon-swing', Icon: TriangleAlert },
+  over: { fill: 'var(--s-critical)', text: 'text-negative', motion: 'icon-shake', Icon: CircleAlert },
+  unplanned: { fill: 'var(--s-warning)', text: 'text-warning', motion: 'icon-swing', Icon: TriangleAlert },
 }
 
 /**
@@ -25,7 +25,7 @@ export function BudgetMeter({
   planned: number
 }) {
   const { used, status } = budgetStatus(actual, planned)
-  const { fill = color, text, Icon } = STATUS[status]
+  const { fill = color, text, motion, Icon } = STATUS[status]
   const width = planned > 0 ? Math.min(used, 1) * 100 : actual > 0 ? 100 : 0
   const remaining = planned - actual
 
@@ -61,7 +61,7 @@ export function BudgetMeter({
         <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${width}%`, background: fill }} />
       </div>
       <p className={`mt-1.5 flex items-center gap-1.5 text-xs ${text}`}>
-        <Icon className="size-3.5" aria-hidden />
+        <Icon className={`size-3.5 ${motion}`} aria-hidden />
         {caption}
         {planned > 0 ? <span className="text-muted">· đã dùng {formatPercent(used, 0)}</span> : null}
       </p>

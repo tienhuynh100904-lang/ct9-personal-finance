@@ -2,10 +2,10 @@ import { ArrowLeftRight, ChartColumnBig, LayoutDashboard, Settings, WalletMinima
 
 export const NAV_ITEMS = [
   { href: '/', label: 'Tổng quan', icon: LayoutDashboard },
-  { href: '/thu-chi', label: 'Thu chi', icon: ArrowLeftRight },
-  { href: '/phan-tich', label: 'Phân tích', icon: ChartColumnBig },
-  { href: '/ngan-sach', label: 'Ngân sách', icon: WalletMinimal },
-  { href: '/cai-dat', label: 'Cài đặt', icon: Settings },
+  { href: '/transactions', label: 'Thu chi', icon: ArrowLeftRight },
+  { href: '/analytics', label: 'Phân tích', icon: ChartColumnBig },
+  { href: '/budget', label: 'Ngân sách', icon: WalletMinimal },
+  { href: '/settings', label: 'Cài đặt', icon: Settings },
 ] as const
 
 export function isActivePath(pathname: string, href: string) {

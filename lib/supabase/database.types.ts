@@ -102,6 +102,27 @@ export type Database = {
         }
         Relationships: []
       }
+      day_marks: {
+        Row: {
+          user_id: string
+          day: string
+          kind: 'no_spend'
+          created_at: string
+        }
+        Insert: {
+          user_id?: string
+          day: string
+          kind?: 'no_spend'
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          day?: string
+          kind?: 'no_spend'
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       item_usage: {

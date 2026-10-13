@@ -10,7 +10,7 @@ import { SavingRateChart } from '@/components/charts/saving-rate-chart'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Segmented } from '@/components/ui/choice'
-import { Select } from '@/components/ui/field'
+import { Select } from '@/components/ui/select'
 import { StatTile } from '@/components/ui/stat-tile'
 import { CATEGORY_META, MEASURE_COLOR } from '@/lib/categories'
 import {
@@ -211,12 +211,12 @@ export function AnalysisView({
             title="Top khoản chi cả năm"
             description="Xếp theo tổng số tiền của từng khoản mục"
             action={
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-2">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink-2">
                 <input
                   type="checkbox"
                   checked={includeSaving}
                   onChange={(e) => setIncludeSaving(e.target.checked)}
-                  className="size-4 accent-[var(--ink)]"
+                  className="size-5 accent-[var(--brand)]"
                 />
                 Gồm tiết kiệm
               </label>
@@ -239,17 +239,12 @@ export function AnalysisView({
             allExpenseItems.length > 0 ? (
               <div className="w-48">
                 <Select
-                  aria-label="Chọn khoản mục"
+                  label="Chọn khoản mục"
                   value={item ?? ''}
-                  onChange={(e) => setSelectedItem(e.target.value)}
-                  className="h-9"
-                >
-                  {allExpenseItems.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
+                  onValueChange={setSelectedItem}
+                  options={allExpenseItems.map((name) => ({ value: name, label: name }))}
+                  triggerClassName="h-9"
+                />
               </div>
             ) : null
           }

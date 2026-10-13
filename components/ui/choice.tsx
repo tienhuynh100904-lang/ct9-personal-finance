@@ -31,10 +31,10 @@ export function ChoiceChips<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm transition-colors',
+              'inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm transition-colors pointer-coarse:h-11',
               selected
-                ? 'border-ink bg-ink font-medium text-surface'
-                : 'border-line-strong bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink',
+                ? 'border-brand-ink bg-brand-soft font-medium text-brand-ink'
+                : 'border-field bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink active:bg-surface-2',
             )}
           >
             {option.dot ? (
@@ -76,7 +76,7 @@ export function Segmented<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex h-9 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors',
+              'flex h-9 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors pointer-coarse:h-11',
               selected ? cn('bg-surface shadow-sm', option.activeClass ?? 'text-ink') : 'text-muted hover:text-ink',
             )}
           >

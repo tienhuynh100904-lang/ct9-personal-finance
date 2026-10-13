@@ -1,4 +1,4 @@
-import type { Kind } from './finance'
+import type { Category, Kind } from './finance'
 import type { TransactionRecord } from './types'
 
 export type EditableTransaction = Pick<
@@ -6,7 +6,16 @@ export type EditableTransaction = Pick<
   'id' | 'kind' | 'item' | 'category' | 'amount' | 'occurred_on' | 'note'
 >
 
-export type ComposerRequest = { kind?: Kind; transaction?: EditableTransaction }
+/** A one-tap starting point: item, category and (usually) the last amount used. */
+export type ComposerPreset = { item: string; category: Category; amount?: number }
+
+export type ComposerRequest = {
+  kind?: Kind
+  transaction?: EditableTransaction
+  /** Date to record against (`YYYY-MM-DD`), e.g. yesterday when backfilling. Defaults to today. */
+  date?: string
+  preset?: ComposerPreset
+}
 
 const COMPOSER_EVENT = 'app:composer'
 let pendingRequest: ComposerRequest | null = null

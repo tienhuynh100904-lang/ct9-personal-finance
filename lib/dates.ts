@@ -13,9 +13,16 @@ export function todayISO(): string {
   return isoFormatter.format(new Date())
 }
 
-export function currentYearMonth(): { year: number; month: number } {
-  const [year, month] = todayISO().split('-').map(Number)
-  return { year, month }
+const hourFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: APP_TIME_ZONE,
+  hour: '2-digit',
+  hourCycle: 'h23',
+})
+
+/** Today's date and the hour of day (0-23), both in Vietnam time. */
+export function nowInAppTimeZone(): { iso: string; hour: number } {
+  const now = new Date()
+  return { iso: isoFormatter.format(now), hour: Number(hourFormatter.format(now)) }
 }
 
 type ParamValue = string | string[] | undefined

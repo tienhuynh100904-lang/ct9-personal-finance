@@ -35,7 +35,7 @@ export function DonutChart({
         rows: slices.map((s) => ({ label: s.label, values: [formatVND(s.value), formatPercent(ratio(s.value, total))] })),
       }}
     >
-      <div className="grid items-center gap-5 sm:grid-cols-[minmax(0,200px)_1fr]">
+      <div className="@container"><div className="grid items-center gap-5 @[26rem]:grid-cols-[minmax(0,200px)_1fr]">
         <div className="relative mx-auto w-full max-w-[200px]">
           <ChartFrame height={height} label={`${title}: tổng ${formatVND(total)}`}>
             <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 200, height }}>
@@ -81,6 +81,7 @@ export function DonutChart({
             </li>
           ))}
         </ul>
+      </div>
       </div>
     </ChartCard>
   )

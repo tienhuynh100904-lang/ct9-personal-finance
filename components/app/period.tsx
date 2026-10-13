@@ -1,26 +1,27 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useTransition } from 'react'
+import { MonthPicker, type MonthValue } from '@/components/ui/month-picker'
+import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/cn'
 import { parseMonth } from '@/lib/dates'
-import { MONTH_LABELS } from '@/lib/format'
 
-export type MonthValue = number | 'all'
+export type { MonthValue }
 
 /**
- * The selected month lives in the URL (`?thang=10`) but switching it is a
+ * The selected month lives in the URL (`?month=10`) but switching it is a
  * shallow update: the page already holds the whole year, so nothing reloads.
  */
 export function useMonthParam(defaultMonth: MonthValue) {
   const searchParams = useSearchParams()
-  const raw = searchParams.get('thang')
+  const raw = searchParams.get('month')
   const month: MonthValue = raw === 'all' ? 'all' : (parseMonth(raw ?? undefined) ?? defaultMonth)
 
   const setMonth = useCallback((value: MonthValue) => {
     const params = new URLSearchParams(window.location.search)
-    params.set('thang', String(value))
+    params.set('month', String(value))
     window.history.replaceState(null, '', `?${params}`)
   }, [])
 
@@ -36,8 +37,8 @@ export function useYearNavigation() {
   const goToYear = useCallback(
     (year: number, month?: MonthValue) => {
       const params = new URLSearchParams(window.location.search)
-      params.set('nam', String(year))
-      if (month !== undefined) params.set('thang', String(month))
+      params.set('year', String(year))
+      if (month !== undefined) params.set('month', String(month))
       startTransition(() => router.push(`${pathname}?${params}`, { scroll: false }))
     },
     [pathname, router],
@@ -46,47 +47,40 @@ export function useYearNavigation() {
   return { goToYear, pending }
 }
 
-const controlClasses =
-  'h-10 rounded-xl border border-line-strong bg-surface text-sm font-medium text-ink transition-colors hover:bg-surface-2 focus:outline-none focus-visible:ring-3 focus-visible:ring-accent/25'
+const arrowClasses =
+  'group grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line-strong bg-surface text-ink transition-colors hover:bg-surface-2 focus:outline-none focus-visible:ring-3 focus-visible:ring-focus/30 active:bg-surface-2 disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11'
 
 export function YearSelect({ year, years, className }: { year: number; years: number[]; className?: string }) {
   const { goToYear, pending } = useYearNavigation()
   return (
-    <label className={cn('relative inline-flex items-center', className)}>
-      <span className="sr-only">Chọn năm</span>
-      <select
-        value={year}
-        onChange={(e) => goToYear(Number(e.target.value))}
-        className={cn(controlClasses, 'appearance-none pr-9 pl-3')}
-      >
-        {years.map((y) => (
-          <option key={y} value={y}>
-            Năm {y}
-          </option>
-        ))}
-      </select>
-      {pending ? (
-        <LoaderCircle className="pointer-events-none absolute right-3 size-4 animate-spin text-muted" aria-hidden />
-      ) : (
-        <ChevronRight className="pointer-events-none absolute right-3 size-4 rotate-90 text-muted" aria-hidden />
-      )}
-    </label>
+    <Select
+      label="Chọn năm"
+      className={cn('w-44', className)}
+      value={String(year)}
+      loading={pending}
+      options={years.map((y) => ({ value: String(y), label: `Năm ${y}` }))}
+      onValueChange={(value) => goToYear(Number(value))}
+      triggerClassName="h-10 pointer-coarse:h-11"
+    />
   )
 }
 
-/** ‹ Tháng 10/2026 › — arrows step across year boundaries too. */
+/** ‹ Tháng 10/2026 › — arrows step across year boundaries too; the middle button opens a month grid. */
 export function MonthSwitcher({
   year,
   month,
   onMonthChange,
   years,
   allowAll = false,
+  stretch = false,
 }: {
   year: number
   month: MonthValue
   onMonthChange: (month: MonthValue) => void
   years: number[]
   allowAll?: boolean
+  /** Fill the row on phones: the month button grows between the two arrows. */
+  stretch?: boolean
 }) {
   const { goToYear, pending } = useYearNavigation()
   const minYear = Math.min(...years)
@@ -108,53 +102,33 @@ export function MonthSwitcher({
   const atEnd = month === 'all' ? year >= maxYear : month === 12 && year >= maxYear
 
   return (
-    <div className="inline-flex items-center gap-1.5">
+    <div className={cn('flex items-center gap-1.5', stretch ? 'w-full sm:inline-flex sm:w-auto' : 'inline-flex')}>
       <button
         type="button"
         onClick={() => step(-1)}
         disabled={atStart || pending}
-        className={cn(controlClasses, 'grid w-10 place-items-center disabled:opacity-40')}
+        className={arrowClasses}
         aria-label={month === 'all' ? 'Năm trước' : 'Tháng trước'}
       >
-        <ChevronLeft className="size-4" aria-hidden />
+        <ChevronLeft className="size-4 transition-transform group-hover:-translate-x-0.5" aria-hidden />
       </button>
-      <label className="relative inline-flex items-center">
-        <span className="sr-only">Chọn tháng</span>
-        <select
-          value={`${year}-${month}`}
-          onChange={(e) => {
-            const [y, m] = e.target.value.split('-')
-            const value: MonthValue = m === 'all' ? 'all' : Number(m)
-            if (Number(y) === year) onMonthChange(value)
-            else goToYear(Number(y), value)
-          }}
-          className={cn(controlClasses, 'min-w-40 appearance-none pr-9 pl-3 text-center tabular-nums')}
-        >
-          {years.map((y) => (
-            <optgroup key={y} label={`Năm ${y}`}>
-              {allowAll ? <option value={`${y}-all`}>Cả năm {y}</option> : null}
-              {MONTH_LABELS.map((label, i) => (
-                <option key={i} value={`${y}-${i + 1}`}>
-                  {label}/{y}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        {pending ? (
-          <LoaderCircle className="pointer-events-none absolute right-3 size-4 animate-spin text-muted" aria-hidden />
-        ) : (
-          <ChevronRight className="pointer-events-none absolute right-3 size-4 rotate-90 text-muted" aria-hidden />
-        )}
-      </label>
+      <MonthPicker
+        className={cn('min-w-0', stretch ? 'flex-1 sm:w-52 sm:flex-none' : 'w-52')}
+        year={year}
+        month={month}
+        years={years}
+        allowAll={allowAll}
+        loading={pending}
+        onChange={(nextYear, nextMonth) => (nextYear === year ? onMonthChange(nextMonth) : goToYear(nextYear, nextMonth))}
+      />
       <button
         type="button"
         onClick={() => step(1)}
         disabled={atEnd || pending}
-        className={cn(controlClasses, 'grid w-10 place-items-center disabled:opacity-40')}
+        className={arrowClasses}
         aria-label={month === 'all' ? 'Năm sau' : 'Tháng sau'}
       >
-        <ChevronRight className="size-4" aria-hidden />
+        <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </button>
     </div>
   )

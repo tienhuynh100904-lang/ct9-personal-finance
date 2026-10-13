@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/app/page-header'
 import { ItemsManager } from '@/components/settings/items-manager'
+import { ThemePicker } from '@/components/settings/theme-picker'
 import { PasswordForm } from '@/components/settings/password-form'
 import { buttonClasses } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
@@ -16,8 +17,14 @@ export const metadata: Metadata = { title: 'Cài đặt' }
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="Cài đặt" description="Danh mục khoản mục và tài khoản đăng nhập" />
+      <PageHeader title="Cài đặt" description="Giao diện, khoản mục và tài khoản đăng nhập" />
       <div className="space-y-4">
+        <Card>
+          <CardHeader title="Giao diện" description="Mặc định là giao diện sáng. Lựa chọn được lưu trên thiết bị này." />
+          <CardBody>
+            <ThemePicker />
+          </CardBody>
+        </Card>
         <Suspense fallback={<Skeleton className="h-96" />}>
           <Items />
         </Suspense>

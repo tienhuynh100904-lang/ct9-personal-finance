@@ -4,11 +4,22 @@
 
 | Trang | Tương ứng trong Excel |
 |---|---|
-| **Tổng quan** `/` | Số liệu tháng: thu, chi, tiết kiệm, thặng dư so với kế hoạch; thanh ngân sách từng nhóm; cơ cấu chi tiêu; top khoản chi; xu hướng 12 tháng |
-| **Thu chi** `/thu-chi` | Sheet *Thu Chi*: thêm / sửa / xoá giao dịch, lọc theo tháng, loại, phân loại, tìm kiếm không dấu, xuất CSV mở được bằng Excel |
-| **Phân tích** `/phan-tich` | Sheet *Phân loại thu chi*: tổng quan cả năm, 5 biểu đồ, bảng 12 tháng (số tiền / tỷ trọng), chi tiết từng khoản mục |
-| **Ngân sách** `/ngan-sach` | Sheet *Lập ngân sách*: dự kiến, thực tế, chênh lệch cho thu nhập, chi tiêu, tiết kiệm/đầu tư |
-| **Cài đặt** `/cai-dat` | Danh mục khoản mục (gợi ý khi nhập), đổi mật khẩu, đăng xuất |
+| **Tổng quan** `/` | **Thẻ "Hôm nay"**: còn được chi bao nhiêu hôm nay, chuỗi ngày ghi chép, dải 7 ngày, ghi nhanh một chạm. Bên dưới: số liệu tháng, thanh ngân sách từng nhóm, cơ cấu chi tiêu, top khoản chi, xu hướng 12 tháng |
+| **Thu chi** `/transactions` | Sheet *Thu Chi*: thêm / sửa / xoá giao dịch, lọc theo tháng, loại, phân loại, tìm kiếm không dấu, xuất CSV mở được bằng Excel |
+| **Phân tích** `/analytics` | Sheet *Phân loại thu chi*: tổng quan cả năm, 5 biểu đồ, bảng 12 tháng (số tiền / tỷ trọng), chi tiết từng khoản mục |
+| **Ngân sách** `/budget` | Sheet *Lập ngân sách*: dự kiến, thực tế, chênh lệch cho thu nhập, chi tiêu, tiết kiệm/đầu tư |
+| **Cài đặt** `/settings` | **Giao diện Sáng / Tối / Theo thiết bị**, danh mục khoản mục (gợi ý khi nhập), đổi mật khẩu, đăng xuất |
+
+## Thiết kế để bạn quen ghi chép mỗi ngày
+
+Ứng dụng chỉ có giá trị khi dữ liệu đầy đủ, nên giao diện xoay quanh việc ghi nhanh và đều:
+
+- **Ghi trong vài giây:** nút "Ghi" nổi ở giữa thanh dưới (vùng ngón cái); chạm một khoản trong **Ghi nhanh** là form mở sẵn khoản mục, phân loại và số tiền lần trước; nút Lưu luôn nằm trên bàn phím; có "Hoàn tác" ngay sau khi lưu.
+- **Một lý do để mở app mỗi ngày:** "Hôm nay còn được chi" = (ngân sách chi tiêu tháng − đã chi các ngày trước) ÷ số ngày còn lại. Ghi một khoản chi là con số giảm ngay.
+- **Chuỗi ngày không bắt lỗi:** hôm nay chưa ghi thì chưa tính là bỏ lỡ; ngày thật sự không chi thì bấm **"Không chi tiêu"** để giữ chuỗi; quên một ngày thì **ghi bù** là chuỗi nối lại. Thông báo luôn nhẹ nhàng.
+- **Chạm giữ biểu tượng app** (Android) để vào thẳng "Ghi khoản chi" / "Ghi khoản thu".
+- **Giao diện sáng là mặc định**; đổi sang tối hoặc theo điện thoại trong **Cài đặt → Giao diện** (lưu trên từng thiết bị, không nháy màu khi mở).
+- Điện thoại là ưu tiên: mọi nút ≥ 44px, hỗ trợ tai thỏ/thanh cử chỉ, tablet dùng cùng thanh điều hướng, desktop có thanh bên.
 
 Công thức được giữ đúng như Excel (đã đối chiếu 390 ô với file gốc): *Thặng dư = Thu nhập − Chi tiêu − Tiết kiệm/Đầu tư*; "Tổng chi tiêu" không gồm tiết kiệm; trung bình/tháng chia 12. Khác biệt duy nhất: "Top khoản chi" tự tính mọi khoản mục đã dùng (bảng Excel cố định nên bỏ sót "Đi nhậu", "Trà sữa"), và mỗi năm được tính riêng.
 
@@ -24,6 +35,8 @@ Công thức được giữ đúng như Excel (đã đối chiếu 390 ô với 
 ### Nhập dữ liệu từ file Excel hiện có (tuỳ chọn)
 
 File `supabase/seed.local.sql` đã được tạo sẵn từ `doc/T10-T12-2026 (1).xlsx` (36 giao dịch, ngân sách 2026, 20 khoản mục). Sau bước 3 ở trên, mở **SQL Editor**, dán nội dung file đó và **Run**. Chạy lại cũng không bị nhân đôi.
+
+> **Nâng cấp từ bản cũ:** bản này thêm bảng `day_marks` (ngày "Không chi tiêu"). Chạy lại toàn bộ `supabase/schema.sql` trong SQL Editor, không mất dữ liệu.
 
 Nếu muốn tạo lại từ file Excel mới hơn:
 
@@ -84,5 +97,6 @@ lib/data.ts         đọc dữ liệu từ Supabase (luôn xác thực phiên t
 lib/actions/        Server Actions: lưu giao dịch, ngân sách, danh mục, đăng nhập
 components/         giao diện; components/charts/ là các biểu đồ (Recharts)
 supabase/schema.sql bảng, RLS, view, hàm — chạy lại được nhiều lần
+docs/database.md   tài liệu giải thích database (bảng, bảo mật RLS, câu SQL mẫu)
 scripts/            chuyển Excel → SQL
 ```

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
-import { Toaster } from '@/components/ui/toast'
+import { ThemeSync } from '@/components/app/theme-sync'
+import { AppToaster } from '@/components/ui/toaster'
+import { THEME_COLORS, THEME_INIT_SCRIPT } from '@/lib/theme'
 import './globals.css'
 
 const inter = Inter({
@@ -23,18 +25,21 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f6f6f3' },
-    { media: '(prefers-color-scheme: dark)', color: '#0d0d0d' },
-  ],
+  // Light-first; the inline theme script overrides this with the chosen theme.
+  themeColor: THEME_COLORS.light,
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="vi" className={`${inter.variable} h-full antialiased`}>
+    // data-theme is set by the inline script before first paint, not by React.
+    <html lang="vi" suppressHydrationWarning className={`${inter.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full bg-bg font-sans text-ink">
         {children}
-        <Toaster />
+        <ThemeSync />
+        <AppToaster />
       </body>
     </html>
   )

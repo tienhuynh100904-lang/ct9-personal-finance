@@ -9,7 +9,7 @@ import { resolveYear } from '@/lib/period'
 
 export const metadata: Metadata = { title: 'Thu chi' }
 
-export default function TransactionsPage({ searchParams }: PageProps<'/thu-chi'>) {
+export default function TransactionsPage({ searchParams }: PageProps<'/transactions'>) {
   return (
     <>
       <PageHeader
@@ -24,7 +24,7 @@ export default function TransactionsPage({ searchParams }: PageProps<'/thu-chi'>
   )
 }
 
-async function Transactions({ searchParams }: Pick<PageProps<'/thu-chi'>, 'searchParams'>) {
+async function Transactions({ searchParams }: Pick<PageProps<'/transactions'>, 'searchParams'>) {
   const { year, today } = await resolveYear(searchParams)
   const [transactions, years] = await Promise.all([getTransactionsForYear(year), getYearOptions(today.year)])
   return (

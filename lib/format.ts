@@ -61,6 +61,26 @@ export function formatWeekday(iso: string): string {
   return weekday.charAt(0).toUpperCase() + weekday.slice(1)
 }
 
+/** Lower-case and accent-free, so "an uong" matches "Ăn uống". */
+export function normalizeText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+}
+
+/** "13/10" */
+export function formatDayMonth(iso: string): string {
+  return `${iso.slice(8)}/${iso.slice(5, 7)}`
+}
+
+/** "Thứ Ba, 13/10" */
+export function formatDayLabel(iso: string): string {
+  return `${formatWeekday(iso)}, ${formatDayMonth(iso)}`
+}
+
 /** Keeps only digits: "1.250.000 ₫" → 1250000. Returns 0 for empty input. */
 export function parseAmount(input: string): number {
   const digits = input.replace(/\D/g, '')

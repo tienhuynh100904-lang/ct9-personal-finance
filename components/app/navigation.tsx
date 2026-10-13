@@ -20,11 +20,16 @@ export function SidebarNav() {
             href={href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors',
-              active ? 'bg-surface-2 font-semibold text-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink',
+              'group flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors',
+              active
+                ? 'bg-brand-soft font-semibold text-brand-ink'
+                : 'text-ink-2 hover:bg-surface-2 hover:text-ink',
             )}
           >
-            <Icon className={cn('size-[18px]', active ? 'text-ink' : 'text-muted')} aria-hidden />
+            <Icon
+              className={cn('size-[18px] transition-transform duration-200 group-hover:scale-110', active ? 'icon-pop text-brand-ink' : 'text-muted')}
+              aria-hidden
+            />
             {label}
           </Link>
         )
@@ -36,17 +41,23 @@ export function SidebarNav() {
 export function AddTransactionButton({ className }: { className?: string }) {
   return (
     <button type="button" onClick={() => openComposer()} className={buttonClasses('primary', 'md', className)}>
-      <Plus className="size-4" aria-hidden />
+      <Plus className="size-4 transition-transform duration-300 group-hover:rotate-90" aria-hidden />
       Thêm giao dịch
     </button>
   )
 }
 
-/** Phone navigation: four destinations around a central "add" button. */
+type NavItem = (typeof NAV_ITEMS)[number]
+
+/**
+ * Phone and tablet navigation: four destinations around a raised brand "Ghi" button.
+ * The add button is the most-used control in the app, so it sits in the thumb zone.
+ */
 export function BottomNav() {
   const pathname = usePathname()
   const [first, second, third, fourth] = NAV_ITEMS
-  const renderLink = ({ href, label, icon: Icon }: (typeof NAV_ITEMS)[number]) => {
+
+  const renderLink = ({ href, label, icon: Icon }: NavItem) => {
     const active = isActivePath(pathname, href)
     return (
       <Link
@@ -54,11 +65,19 @@ export function BottomNav() {
         href={href}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] transition-colors',
-          active ? 'font-semibold text-ink' : 'text-muted',
+          'group flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
+          active ? 'font-semibold text-brand-ink' : 'text-muted',
         )}
       >
-        <Icon className="size-[22px]" aria-hidden strokeWidth={active ? 2.25 : 1.75} />
+        <span
+          className={cn('grid h-8 w-14 place-items-center rounded-full transition-colors', active && 'bg-brand-soft')}
+        >
+          <Icon
+            className={cn('size-[22px] transition-transform duration-200 group-active:scale-90', active && 'icon-pop')}
+            aria-hidden
+            strokeWidth={active ? 2.25 : 1.75}
+          />
+        </span>
         {label}
       </Link>
     )
@@ -69,19 +88,20 @@ export function BottomNav() {
       aria-label="Điều hướng chính"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
-      <div className="mx-auto flex h-16 max-w-lg items-stretch px-2">
+      <div className="mx-auto flex h-16 max-w-lg items-stretch px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
         {renderLink(first)}
         {renderLink(second)}
-        <div className="flex flex-1 items-center justify-center">
-          <button
-            type="button"
-            onClick={() => openComposer()}
-            className="grid size-12 place-items-center rounded-2xl bg-ink text-surface shadow-lg shadow-black/20 transition-transform active:scale-95"
-            aria-label="Thêm giao dịch"
-          >
-            <Plus className="size-6" aria-hidden />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => openComposer()}
+          className="group flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-semibold text-brand-ink"
+          aria-label="Ghi giao dịch mới"
+        >
+          <span className="-mt-6 grid size-14 place-items-center rounded-2xl border border-brand-edge bg-brand text-on-brand shadow-[var(--shadow-fab)] ring-4 ring-surface transition-transform motion-safe:active:scale-95">
+            <Plus className="size-7 transition-transform duration-300 group-hover:rotate-90 group-active:rotate-90" aria-hidden />
+          </span>
+          <span aria-hidden>Ghi</span>
+        </button>
         {renderLink(third)}
         {renderLink(fourth)}
       </div>

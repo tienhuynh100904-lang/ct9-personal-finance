@@ -1,17 +1,18 @@
 import 'server-only'
 
 import { connection } from 'next/server'
-import { currentYearMonth, parseYear } from './dates'
+import { nowInAppTimeZone, parseYear } from './dates'
 import { monthOf, yearOf, type Txn } from './finance'
 
 type SearchParams = Record<string, string | string[] | undefined>
 
-/** Reads `?nam=` and today's date (Vietnam time) for the current request. */
+/** Reads `?year=` and today's date (Vietnam time) for the current request. */
 export async function resolveYear(searchParams: Promise<SearchParams>) {
   const params = await searchParams
   await connection()
-  const today = currentYearMonth()
-  const year = parseYear(params.nam) ?? today.year
+  const { iso, hour } = nowInAppTimeZone()
+  const today = { year: Number(iso.slice(0, 4)), month: Number(iso.slice(5, 7)), iso, hour }
+  const year = parseYear(params.year) ?? today.year
   return { year, today }
 }
 

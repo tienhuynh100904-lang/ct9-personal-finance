@@ -42,7 +42,8 @@ export async function updateSession(request: NextRequest) {
   const signedIn = Boolean(data?.claims?.sub)
 
   if (!signedIn && !isLoginPage) {
-    const next = pathname === '/' ? '' : `?next=${encodeURIComponent(pathname + search)}`
+    // Keep deep links such as /?add=expense (app-icon shortcuts) across the login round trip.
+    const next = pathname === '/' && !search ? '' : `?next=${encodeURIComponent(pathname + search)}`
     return withCookies(redirectTo(request, `${LOGIN_PATH}${next}`), response)
   }
   if (signedIn && isLoginPage) {

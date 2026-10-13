@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Inbox } from 'lucide-react'
+import { ArrowRight, Inbox } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
 import { MonthSwitcher, useMonthParam } from '@/components/app/period'
@@ -26,25 +26,34 @@ import {
   type BudgetRow,
 } from '@/lib/finance'
 import { formatPercent, formatSignedVND, formatVND } from '@/lib/format'
-import type { TransactionRecord } from '@/lib/types'
+import { recentPresets } from '@/lib/habit'
+import type { HabitData, TransactionRecord } from '@/lib/types'
+import { QuickLog } from './quick-log'
+import { TodayCard } from './today-card'
 
 function progressText(actual: number, planned: number, noun: string) {
   if (planned <= 0) return `Chưa đặt ${noun}`
   return `${formatPercent(ratio(actual, planned), 0)} ${noun} ${formatVND(planned)}`
 }
 
+/**
+ * Phone order is the DOM order: today's habit card first (the reason to open the app),
+ * then one-tap logging, then the month in numbers, what was just logged, and the analysis.
+ */
 export function DashboardView({
   year,
   years,
   defaultMonth,
   transactions,
   budgetRows,
+  habit,
 }: {
   year: number
   years: number[]
   defaultMonth: number
   transactions: TransactionRecord[]
   budgetRows: BudgetRow[]
+  habit: HabitData
 }) {
   const [monthParam, setMonth] = useMonthParam(defaultMonth)
   const month = monthParam === 'all' ? defaultMonth : monthParam
@@ -57,21 +66,15 @@ export function DashboardView({
     [transactions, month],
   )
   const topItems = useMemo(() => topExpenseItems(transactions, year, { month }), [transactions, year, month])
+  const presets = useMemo(() => recentPresets(habit.transactions, habit.today), [habit.transactions, habit.today])
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} />
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => openComposer({ kind: 'income' })}>
-            <ArrowDownLeft className="size-4 text-income" aria-hidden />
-            Thu nhập
-          </Button>
-          <Button onClick={() => openComposer({ kind: 'expense' })}>
-            <ArrowUpRight className="size-4" aria-hidden />
-            Chi tiêu
-          </Button>
-        </div>
+      <TodayCard habit={habit} />
+      <QuickLog presets={presets} />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} stretch />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -83,25 +86,62 @@ export function DashboardView({
         </StatTile>
         <StatTile label="Tiết kiệm/Đầu tư" value={formatVND(snapshot.saving)} color={MEASURE_COLOR.saving}>
           <p>{progressText(snapshot.saving, snapshot.planned.saving, 'mục tiêu')}</p>
-          <p>Thực tế tiết kiệm: {formatPercent(snapshot.actualSavingRate)} thu nhập</p>
+          <p className="hidden sm:block">Thực tế tiết kiệm: {formatPercent(snapshot.actualSavingRate)} thu nhập</p>
         </StatTile>
         <StatTile
           label="Thặng dư"
           value={snapshot.surplus < 0 ? formatSignedVND(snapshot.surplus) : formatVND(snapshot.surplus)}
           tone={snapshot.surplus < 0 ? 'negative' : 'default'}
         >
-          <p>= Thu nhập − Chi tiêu − Tiết kiệm</p>
+          <p className="hidden sm:block">= Thu nhập − Chi tiêu − Tiết kiệm</p>
           <p>Có thể tiết kiệm: {formatPercent(snapshot.potentialSavingRate)} thu nhập</p>
         </StatTile>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader
+            title="Giao dịch gần đây"
+            description={`${monthTransactions.length} giao dịch trong tháng ${month}`}
+            action={
+              <Link
+                href={`/transactions?year=${year}&month=${month}`}
+                className="group inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-ink hover:underline"
+              >
+                Xem tất cả <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
+              </Link>
+            }
+          />
+          <div className="px-2 pt-2 pb-3 sm:px-3">
+            {monthTransactions.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                title={`Chưa có giao dịch tháng ${month}`}
+                action={
+                  habit.hasAnyTransaction ? <Button onClick={() => openComposer({ kind: 'expense' })}>Ghi khoản chi</Button> : undefined
+                }
+              >
+                Khoản đầu tiên chỉ mất vài giây.
+              </EmptyState>
+            ) : (
+              <ul>
+                {monthTransactions.slice(0, 5).map((t) => (
+                  <TransactionRow key={t.id} transaction={t} showDate />
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
+
         <Card>
           <CardHeader
             title={`Ngân sách chi tiêu tháng ${month}`}
             description="Thực tế so với dự kiến của từng nhóm"
             action={
-              <Link href={`/ngan-sach?nam=${year}&thang=${month}`} className="text-sm font-medium text-accent hover:underline">
+              <Link
+                href={`/budget?year=${year}&month=${month}`}
+                className="inline-flex min-h-11 items-center text-sm font-medium text-brand-ink hover:underline"
+              >
                 Lập ngân sách
               </Link>
             }
@@ -118,7 +158,9 @@ export function DashboardView({
             ))}
           </CardBody>
         </Card>
+      </div>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DonutChart
           title={`Cơ cấu chi tiêu tháng ${month}`}
           description="Theo nhóm, không gồm tiết kiệm/đầu tư"
@@ -130,42 +172,11 @@ export function DashboardView({
             color: CATEGORY_META[c].color,
           }))}
         />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="Chi nhiều nhất" description={`Theo khoản mục, tháng ${month}/${year}`} />
           <CardBody>
             <RankedBars items={topItems} color={MEASURE_COLOR.spending} limit={6} emptyText="Tháng này chưa có khoản chi." />
           </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="Giao dịch gần đây"
-            description={`${monthTransactions.length} giao dịch trong tháng`}
-            action={
-              <Link
-                href={`/thu-chi?nam=${year}&thang=${month}`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
-              >
-                Xem tất cả <ArrowRight className="size-3.5" aria-hidden />
-              </Link>
-            }
-          />
-          <div className="px-2 pt-2 pb-3 sm:px-3">
-            {monthTransactions.length === 0 ? (
-              <EmptyState icon={Inbox} title="Chưa có giao dịch" action={<Button onClick={() => openComposer()}>Thêm giao dịch</Button>}>
-                Ghi lại khoản thu, khoản chi đầu tiên của tháng {month}.
-              </EmptyState>
-            ) : (
-              <ul>
-                {monthTransactions.slice(0, 6).map((t) => (
-                  <TransactionRow key={t.id} transaction={t} showDate />
-                ))}
-              </ul>
-            )}
-          </div>
         </Card>
       </div>
 

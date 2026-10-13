@@ -2,12 +2,19 @@ import 'server-only'
 
 import { getSession } from './auth'
 import type { BudgetRow } from './finance'
-import type { ItemRecord, ItemUsage, TransactionRecord } from './types'
+import { habitWindowStart, lastOfMonth } from './habit'
+import { isMissingTable } from './supabase/errors'
+import type { HabitData, ItemRecord, ItemUsage, TransactionRecord } from './types'
 
 /** Supabase caps each response (1000 rows by default), so long lists are read page by page. */
 const PAGE_SIZE = 1000
 
 export async function getTransactionsForYear(year: number): Promise<TransactionRecord[]> {
+  return readTransactions(`${year}-01-01`, `${year}-12-31`)
+}
+
+/** Transactions with `occurred_on` in `[from, to]`, newest first. */
+async function readTransactions(from: string, to: string): Promise<TransactionRecord[]> {
   const { supabase } = await getSession()
   const rows: TransactionRecord[] = []
   let total: number | null = null
@@ -18,8 +25,8 @@ export async function getTransactionsForYear(year: number): Promise<TransactionR
       .select('id, kind, item, category, amount, occurred_on, note, created_at', {
         count: total === null ? 'exact' : undefined,
       })
-      .gte('occurred_on', `${year}-01-01`)
-      .lte('occurred_on', `${year}-12-31`)
+      .gte('occurred_on', from)
+      .lte('occurred_on', to)
       .order('occurred_on', { ascending: false })
       .order('created_at', { ascending: false })
       .order('id')
@@ -82,3 +89,49 @@ export async function getYearOptions(currentYear: number): Promise<number[]> {
   const max = Math.max(...candidates)
   return Array.from({ length: max - min + 1 }, (_, i) => max - i)
 }
+
+/**
+ * Everything the home screen's habit card needs, for a window of recent days that is
+ * independent of the year being viewed (so a streak survives New Year).
+ * The "Không chi tiêu" table is optional: if it is missing, the rest still works.
+ */
+export async function getHabitData(today: string, hour: number): Promise<HabitData> {
+  const { supabase } = await getSession()
+  const windowStart = habitWindowStart(today)
+  const [year, month] = today.split('-').map(Number)
+
+  const [transactions, budget, marks] = await Promise.all([
+    readTransactions(windowStart, lastOfMonth(today)),
+    supabase.from('budgets').select('month, category, amount').eq('year', year).eq('month', month),
+    supabase.from('day_marks').select('day').gte('day', windowStart).lte('day', today),
+  ])
+  if (budget.error) throw new Error(`Không tải được ngân sách: ${budget.error.message}`)
+
+  let noSpendDays: string[] = []
+  let marksAvailable = true
+  if (marks.error) {
+    marksAvailable = false
+    if (!isMissingTable(marks.error)) console.error('day_marks read failed', marks.error)
+  } else {
+    noSpendDays = marks.data.map((row) => row.day)
+  }
+
+  let hasAnyTransaction = transactions.length > 0
+  if (!hasAnyTransaction) {
+    const { count, error } = await supabase.from('transactions').select('id', { count: 'exact', head: true })
+    if (error) throw new Error(`Không tải được giao dịch: ${error.message}`)
+    hasAnyTransaction = (count ?? 0) > 0
+  }
+
+  return {
+    today,
+    windowStart,
+    hour,
+    transactions,
+    monthBudget: budget.data,
+    noSpendDays,
+    marksAvailable,
+    hasAnyTransaction,
+  }
+}
+
