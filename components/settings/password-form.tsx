@@ -1,26 +1,33 @@
 'use client'
 
-import { LoaderCircle } from 'lucide-react'
+import { Check, LoaderCircle, LockKeyhole } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { PasswordInput } from '@/components/ui/password-input'
+import { PasswordStrengthMeter } from '@/components/ui/password-strength'
+import { checkPassword } from '@/lib/password-policy'
 import { toast } from '@/lib/toast'
 import { runAction } from '@/lib/run-action'
 import { changePassword } from '@/lib/actions/auth'
 
-export function PasswordForm() {
+export function PasswordForm({ email }: { email: string | null }) {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [errors, setErrors] = useState<{ currentPassword?: string; newPassword?: string; confirm?: string }>({})
+  /** Set once the confirmation field loses focus, so "doesn't match" isn't shown while it is still being typed. */
+  const [confirmTouched, setConfirmTouched] = useState(false)
+  const [errors, setErrors] = useState<{ currentPassword?: string; newPassword?: string }>({})
   const [pending, startTransition] = useTransition()
 
+  const check = checkPassword(newPassword, email)
+  const passwordsMatch = newPassword !== '' && newPassword === confirmPassword
+  /** The submit button only appears once the new password is strong and confirmed. */
+  const ready = check.strong && passwordsMatch
+  const confirmError = confirmTouched && confirmPassword !== '' && !passwordsMatch ? 'Mật khẩu nhập lại không khớp.' : undefined
+
   function submit() {
-    if (newPassword !== confirmPassword) {
-      setErrors({ confirm: 'Mật khẩu nhập lại không khớp.' })
-      return
-    }
+    if (!ready) return
     setErrors({})
     startTransition(async () => {
       const result = await runAction(() => changePassword({ currentPassword, newPassword }))
@@ -30,6 +37,7 @@ export function PasswordForm() {
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')
+        setConfirmTouched(false)
       } else {
         setErrors(result.fieldErrors ?? {})
         toast.error(result.error)
@@ -39,7 +47,7 @@ export function PasswordForm() {
 
   return (
     <form
-      className="grid gap-4 sm:grid-cols-3"
+      className="grid max-w-md gap-4"
       onSubmit={(e) => {
         e.preventDefault()
         submit()
@@ -55,34 +63,52 @@ export function PasswordForm() {
           required
         />
       </Field>
-      <Field label="Mật khẩu mới" htmlFor="new-password" error={errors.newPassword} hint="Ít nhất 8 ký tự">
+      <Field label="Mật khẩu mới" htmlFor="new-password" error={errors.newPassword}>
         <PasswordInput
           id="new-password"
           autoComplete="new-password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           aria-invalid={Boolean(errors.newPassword)}
-          minLength={8}
+          aria-describedby="new-password-strength"
           required
         />
       </Field>
-      <Field label="Nhập lại mật khẩu mới" htmlFor="confirm-password" error={errors.confirm}>
+      <PasswordStrengthMeter id="new-password-strength" check={check} />
+      <Field
+        label="Nhập lại mật khẩu mới"
+        htmlFor="confirm-password"
+        error={confirmError}
+        hint={
+          passwordsMatch ? (
+            <span className="inline-flex items-center gap-1 font-medium text-positive">
+              <Check key="match" className="icon-pop size-3.5" strokeWidth={3} aria-hidden />
+              Hai mật khẩu đã khớp
+            </span>
+          ) : undefined
+        }
+      >
         <Input
           id="confirm-password"
           type="password"
           autoComplete="new-password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          aria-invalid={Boolean(errors.confirm)}
+          onBlur={() => setConfirmTouched(true)}
+          aria-invalid={Boolean(confirmError)}
           required
         />
       </Field>
-      <div className="sm:col-span-3">
-        <Button type="submit" disabled={pending || !currentPassword || !newPassword}>
-          {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : null}
-          Đổi mật khẩu
-        </Button>
-      </div>
+      {ready ? (
+        <div className="rise-in">
+          <Button type="submit" disabled={pending || !currentPassword}>
+            {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <LockKeyhole className="icon-pop size-4" aria-hidden />}
+            Đổi mật khẩu
+          </Button>
+        </div>
+      ) : (
+        <p className="text-xs text-muted">Nút “Đổi mật khẩu” sẽ hiện khi mật khẩu mới đạt đủ yêu cầu và hai ô trùng nhau.</p>
+      )}
     </form>
   )
 }

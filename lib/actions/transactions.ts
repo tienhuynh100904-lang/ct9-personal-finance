@@ -2,14 +2,21 @@
 
 import { refresh } from 'next/cache'
 import { getSession } from '../auth'
-import { isMissingTable } from '../supabase/errors'
+import type { BudgetAlert } from '../finance'
+import { budgetCrossing, clearNoSpendMark } from '../transaction-effects'
 import { validateTransaction, type FieldErrors, type TransactionInput } from '../validation'
 import { isUuid, type ActionResult } from './result'
 
-
 export async function saveTransaction(
   input: TransactionInput,
-): Promise<ActionResult<FieldErrors<TransactionInput>> & { id?: string; clearedMark?: boolean }> {
+): Promise<
+  ActionResult<FieldErrors<TransactionInput>> & {
+    id?: string
+    clearedMark?: boolean
+    /** Set when this entry just pushed its spending group past 80% or 100% of the month's plan. */
+    budgetAlert?: BudgetAlert | null
+  }
+> {
   const { supabase, user } = await getSession()
 
   const parsed = validateTransaction(input)
@@ -19,6 +26,11 @@ export async function saveTransaction(
 
   const id = input?.id
   if (id !== undefined && !isUuid(id)) return { ok: false, error: 'Giao dịch không hợp lệ.' }
+
+  // The row before an edit, so the budget check counts only the difference.
+  const previous = id
+    ? (await supabase.from('transactions').select('kind, category, amount, occurred_on').eq('id', id).maybeSingle()).data
+    : null
 
   const { data, error } = id
     ? await supabase.from('transactions').update(parsed.value).eq('id', id).select('id')
@@ -33,24 +45,14 @@ export async function saveTransaction(
   }
   if (!data.length) return { ok: false, error: 'Không tìm thấy giao dịch cần sửa.' }
 
-  // An expense means the day was not a "no spend" day: drop the mark (best effort), and
-  // tell the caller so that "Hoàn tác" can put the mark back.
-  let clearedMark = false
-  if (parsed.value.kind === 'expense') {
-    const { data: removed, error: markError } = await supabase
-      .from('day_marks')
-      .delete()
-      .eq('day', parsed.value.occurred_on)
-      .select('day')
-    if (markError) {
-      if (!isMissingTable(markError)) console.error('clearing day mark failed', markError)
-    } else {
-      clearedMark = removed.length > 0
-    }
-  }
+  // An expense means the day was not a "no spend" day; tell the caller so "Hoàn tác" can restore the mark.
+  const [clearedMark, budgetAlert] = await Promise.all([
+    parsed.value.kind === 'expense' ? clearNoSpendMark(supabase, parsed.value.occurred_on) : false,
+    budgetCrossing(supabase, parsed.value, previous),
+  ])
 
   refresh()
-  return { ok: true, id: data[0].id, clearedMark }
+  return { ok: true, id: data[0].id, clearedMark, budgetAlert }
 }
 
 export async function deleteTransaction(id: string): Promise<ActionResult> {

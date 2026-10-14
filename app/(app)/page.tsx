@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { PageHeader } from '@/components/app/page-header'
 import { DashboardView } from '@/components/dashboard/dashboard-view'
 import { DashboardSkeleton } from '@/components/ui/skeleton'
-import { getBudgetRows, getHabitData, getTransactionsForYear, getYearOptions } from '@/lib/data'
+import { getBudgetRows, getHabitData, getRecurringData, getTransactionsForYear, getYearOptions } from '@/lib/data'
 import { defaultMonthFor, resolveYear } from '@/lib/period'
 
 export const metadata: Metadata = { title: 'Tổng quan' }
@@ -21,11 +21,12 @@ export default function DashboardPage({ searchParams }: PageProps<'/'>) {
 
 async function Dashboard({ searchParams }: Pick<PageProps<'/'>, 'searchParams'>) {
   const { year, today } = await resolveYear(searchParams)
-  const [transactions, budgetRows, years, habit] = await Promise.all([
+  const [transactions, budgetRows, years, habit, recurring] = await Promise.all([
     getTransactionsForYear(year),
     getBudgetRows(year),
     getYearOptions(today.year),
     getHabitData(today.iso, today.hour),
+    getRecurringData(today.iso),
   ])
   return (
     <DashboardView
@@ -35,6 +36,7 @@ async function Dashboard({ searchParams }: Pick<PageProps<'/'>, 'searchParams'>)
       transactions={transactions}
       budgetRows={budgetRows}
       habit={habit}
+      recurring={recurring}
     />
   )
 }

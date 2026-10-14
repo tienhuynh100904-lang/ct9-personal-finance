@@ -1,8 +1,9 @@
 'use client'
 
-import { Eye, EyeOff, LoaderCircle } from 'lucide-react'
+import { Eye, EyeOff, LockKeyhole, LogIn, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { useActionState, useLayoutEffect, useRef, useState } from 'react'
+import { AuthAlert, CoinSpinner, FieldIcon } from '@/components/app/auth-ui'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { signIn, type LoginState } from '@/lib/actions/auth'
@@ -44,26 +45,36 @@ export function LoginForm() {
       className="space-y-4"
     >
       <Field label="Email" htmlFor="email">
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          inputMode="email"
-          defaultValue={state.email}
-          required
-          autoFocus
-        />
+        <div className="relative">
+          <FieldIcon>
+            <Mail />
+          </FieldIcon>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            inputMode="email"
+            defaultValue={state.email}
+            placeholder="ban@email.com"
+            required
+            autoFocus
+            className="pl-10"
+          />
+        </div>
       </Field>
       <Field label="Mật khẩu" htmlFor="password" hint={<ForgotLink />}>
         <div className="relative">
+          <FieldIcon>
+            <LockKeyhole />
+          </FieldIcon>
           <Input
             id="password"
             name="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             required
-            className="pr-11"
+            className="pr-11 pl-10"
           />
           <button
             type="button"
@@ -77,14 +88,10 @@ export function LoginForm() {
         </div>
       </Field>
 
-      {state.error ? (
-        <p role="alert" className="rounded-xl bg-negative/10 px-3 py-2.5 text-sm font-medium text-negative">
-          {state.error}
-        </p>
-      ) : null}
+      {state.error ? <AuthAlert key={state.error}>{state.error}</AuthAlert> : null}
 
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : null}
+      <Button type="submit" size="lg" className="btn-sheen w-full" disabled={pending}>
+        {pending ? <CoinSpinner /> : <LogIn className="icon-hover-wiggle size-4" aria-hidden />}
         {pending ? 'Đang đăng nhập…' : 'Đăng nhập'}
       </Button>
     </form>

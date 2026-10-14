@@ -66,6 +66,35 @@ export function validateTransaction(input: unknown): Validated<TransactionValues
   }
 }
 
+export type RecurringInput = {
+  id?: string
+  kind: Kind
+  item: string
+  category: Category
+  amount: number
+  /** 1–31; past the end of a short month it falls on the last day. */
+  day_of_month: number
+  note?: string | null
+}
+
+export type RecurringValues = Omit<RecurringInput, 'id' | 'note'> & { note: string | null }
+
+/** Same rules as a transaction, with a day of the month instead of a date. */
+export function validateRecurring(input: unknown): Validated<RecurringValues, FieldErrors<RecurringInput>> {
+  const raw = (input ?? {}) as Record<string, unknown>
+  const today = new Date().toISOString().slice(0, 10)
+  const base = validateTransaction({ ...raw, occurred_on: today })
+  const errors: FieldErrors<RecurringInput> = base.ok ? {} : { ...base.fieldErrors }
+  delete (errors as FieldErrors<TransactionInput>).occurred_on
+
+  const day = raw.day_of_month
+  if (typeof day !== 'number' || !Number.isInteger(day) || day < 1 || day > 31) errors.day_of_month = 'Chọn ngày trong tháng (1–31).'
+
+  if (!base.ok || Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors }
+  const { kind, item, category, amount, note } = base.value
+  return { ok: true, value: { kind, item, category, amount, note, day_of_month: day as number } }
+}
+
 export type ItemInput = { kind: Kind; name: string; default_category: Category | null }
 
 export function validateItem(input: unknown): Validated<ItemInput> {

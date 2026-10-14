@@ -15,7 +15,9 @@ import { BudgetMeter } from '@/components/ui/meter'
 import { StatTile } from '@/components/ui/stat-tile'
 import { CATEGORY_META, MEASURE_COLOR } from '@/lib/categories'
 import { openComposer } from '@/lib/composer'
+import type { RecurringData } from '@/lib/data'
 import {
+  budgetAlerts,
   buildBudgetPlan,
   buildYearReport,
   monthOf,
@@ -28,7 +30,9 @@ import {
 import { formatPercent, formatSignedVND, formatVND } from '@/lib/format'
 import { recentPresets } from '@/lib/habit'
 import type { HabitData, TransactionRecord } from '@/lib/types'
+import { BudgetAlerts } from './budget-alerts'
 import { QuickLog } from './quick-log'
+import { RecurringCard } from './recurring-card'
 import { TodayCard } from './today-card'
 
 function progressText(actual: number, planned: number, noun: string) {
@@ -47,6 +51,7 @@ export function DashboardView({
   transactions,
   budgetRows,
   habit,
+  recurring,
 }: {
   year: number
   years: number[]
@@ -54,6 +59,8 @@ export function DashboardView({
   transactions: TransactionRecord[]
   budgetRows: BudgetRow[]
   habit: HabitData
+  /** `null` when the recurring tables do not exist yet (schema.sql not re-run): the card is hidden. */
+  recurring: RecurringData | null
 }) {
   const [monthParam, setMonth] = useMonthParam(defaultMonth)
   const month = monthParam === 'all' ? defaultMonth : monthParam
@@ -61,6 +68,7 @@ export function DashboardView({
   const report = useMemo(() => buildYearReport(transactions, year), [transactions, year])
   const plan = useMemo(() => buildBudgetPlan(budgetRows), [budgetRows])
   const snapshot = monthSnapshot(report, plan, month)
+  const alerts = budgetAlerts(snapshot.spendingByCategory)
   const monthTransactions = useMemo(
     () => transactions.filter((t) => monthOf(t.occurred_on) === month),
     [transactions, month],
@@ -71,11 +79,14 @@ export function DashboardView({
   return (
     <div className="space-y-4">
       <TodayCard habit={habit} />
+      {recurring ? <RecurringCard data={recurring} /> : null}
       <QuickLog presets={presets} />
 
       <div className="flex flex-wrap items-center gap-3">
         <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} stretch />
       </div>
+
+      <BudgetAlerts alerts={alerts} year={year} month={month} today={habit.today} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Thu nhập" value={formatVND(snapshot.income)} color={MEASURE_COLOR.income}>

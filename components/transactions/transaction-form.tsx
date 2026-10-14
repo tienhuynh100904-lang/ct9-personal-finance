@@ -1,16 +1,19 @@
 'use client'
 
-import { ArrowDownLeft, ArrowUpRight, LoaderCircle, Plus, Trash2 } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, LoaderCircle, Plus, Repeat, Trash2 } from 'lucide-react'
 import { useId, useMemo, useRef, useState, useTransition } from 'react'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ChoiceChips, Segmented } from '@/components/ui/choice'
 import { DialogBody, DialogFooter } from '@/components/ui/dialog'
 import { Calendar } from '@/components/ui/calendar'
 import { Field, FieldError, Input, Textarea } from '@/components/ui/field'
 import { toast } from '@/lib/toast'
 import { markNoSpend } from '@/lib/actions/day-marks'
+import { createRecurringFromTransaction, deleteRecurring } from '@/lib/actions/recurring'
 import { deleteTransaction, saveTransaction } from '@/lib/actions/transactions'
+import { showBudgetAlert } from '@/lib/budget-alert-toast'
 import { longDateLabel } from '@/lib/calendar'
 import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
@@ -72,6 +75,8 @@ export function TransactionForm({
   const [noteOpen, setNoteOpen] = useState(Boolean(initial?.note))
   const [errors, setErrors] = useState<FieldErrors<TransactionInput>>({})
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  /** "Lặp lại hằng tháng": after saving, the entry also becomes a monthly recurring rule. */
+  const [repeatMonthly, setRepeatMonthly] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const suggestions = useMemo(
@@ -142,8 +147,25 @@ export function TransactionForm({
       }
       const signed = formatSignedVND(kind === 'income' ? amount : -amount)
       const detail = `“${check.value.item}” · ${signed}`
+      const savedDay = check.value.occurred_on
+      // Turning the entry into a monthly rule is a follow-up: the transaction itself is already saved.
+      const makeRecurring: Promise<string | null> =
+        repeatMonthly && !initial && result.id
+          ? runAction(() => createRecurringFromTransaction(result.id!)).then((made) => {
+              if (made && !made.ok) toast.error(made.error)
+              return made?.ok ? (made.id ?? null) : null
+            })
+          : Promise.resolve(null)
+      const warnBudget = () => {
+        if (result.budgetAlert) showBudgetAlert(result.budgetAlert, savedDay)
+      }
       if (addAnother) {
         toast.success('Đã lưu giao dịch', { description: detail })
+        warnBudget()
+        void makeRecurring.then((ruleId) => {
+          if (ruleId) toast.success('Đã đặt lặp lại hằng tháng', { description: `“${check.value.item}” · ngày ${Number(savedDay.slice(8))} mỗi tháng` })
+        })
+        setRepeatMonthly(false)
         setAmount(0)
         setItem('')
         setNote('')
@@ -155,15 +177,16 @@ export function TransactionForm({
       }
       onDone()
       // Toast once the dialog has closed, so the toast does not jump from the dialog to the page.
-      window.setTimeout(() => {
+      window.setTimeout(async () => {
         if (initial) {
           toast.success('Đã cập nhật giao dịch', { description: detail })
+          warnBudget()
           return
         }
         const id = result.id
-        const savedDay = check.value.occurred_on
-        toast.success('Đã lưu giao dịch', {
-          description: detail,
+        const ruleId = await makeRecurring
+        toast.success(ruleId ? 'Đã lưu và đặt lặp lại hằng tháng' : 'Đã lưu giao dịch', {
+          description: ruleId ? `${detail} · ngày ${Number(savedDay.slice(8))} mỗi tháng` : detail,
           action: id
             ? {
                 label: 'Hoàn tác',
@@ -174,12 +197,15 @@ export function TransactionForm({
                     if (!undo.ok) return toast.error(undo.error)
                     // Saving removed a "Không chi tiêu" mark: undoing the entry puts it back.
                     if (result.clearedMark) await runAction(() => markNoSpend(savedDay))
+                    // The monthly rule made from this entry goes too.
+                    if (ruleId) await runAction(() => deleteRecurring(ruleId))
                     toast.success('Đã hoàn tác', { description: 'Giao dịch vừa lưu đã được xoá.' })
                   })()
                 },
               }
             : undefined,
         })
+        warnBudget()
       }, 150)
     })
   }
@@ -343,6 +369,20 @@ export function TransactionForm({
             </p>
           ) : null}
         </div>
+
+        {initial ? null : (
+          <Checkbox
+            checked={repeatMonthly}
+            onChange={(e) => setRepeatMonthly(e.target.checked)}
+            hint={`Ngày ${Number(date.slice(8))} mỗi tháng, app sẽ gợi ý sẵn để bạn chỉ cần xác nhận.`}
+            card
+          >
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Repeat className="size-4 text-brand-ink" aria-hidden />
+              Lặp lại hằng tháng
+            </span>
+          </Checkbox>
+        )}
 
         {noteOpen ? (
           <Field label="Ghi chú" htmlFor={`${formId}-note`} error={errors.note}>

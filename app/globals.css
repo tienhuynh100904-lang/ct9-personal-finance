@@ -49,6 +49,7 @@
   --shadow-2: 0 1px 2px rgba(11, 11, 11, 0.04), 0 6px 20px -6px rgba(11, 11, 11, 0.1);
   --shadow-fab: 0 10px 22px -8px rgba(176, 125, 0, 0.55);
   --shadow-sheet: 0 -8px 40px rgba(11, 11, 11, 0.16);
+  --shadow-auth: 0 1px 2px rgba(11, 11, 11, 0.04), 0 28px 60px -24px rgba(122, 82, 0, 0.32);
 
   /* chart series */
   --c-income: #1baf7a;
@@ -104,6 +105,7 @@
   --shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
   --shadow-fab: 0 10px 22px -8px rgba(0, 0, 0, 0.7);
   --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.5);
+  --shadow-auth: 0 1px 2px rgba(0, 0, 0, 0.3), 0 28px 60px -24px rgba(0, 0, 0, 0.75);
 
   --c-income: #199e70;
   --c-expense: #d95926;
@@ -453,6 +455,308 @@
 .group:hover .icon-hover-spin,
 .group:focus-visible .icon-hover-spin {
   animation: icon-spin 700ms ease-in-out;
+}
+
+/* Entrance for a control that just appeared (e.g. the "Đổi mật khẩu" button once the form is ready). */
+@keyframes rise-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+.rise-in {
+  animation: rise-in 320ms var(--ease-out) both;
+}
+
+/* ---- Auth shell (components/app/auth-card.tsx) ------------------------------- */
+.auth-glow {
+  background:
+    radial-gradient(70rem 36rem at 50% -12%, color-mix(in oklab, var(--brand) 38%, transparent), transparent 70%),
+    radial-gradient(40rem 28rem at 100% 100%, color-mix(in oklab, var(--c-income) 12%, transparent), transparent 70%),
+    var(--bg);
+}
+
+.auth-dots {
+  background-image: radial-gradient(color-mix(in oklab, var(--ink) 14%, transparent) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+}
+
+.auth-aurora {
+  position: absolute;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.55;
+  animation: aurora-drift 18s ease-in-out infinite alternate;
+}
+.auth-aurora-gold {
+  top: -8rem;
+  left: -6rem;
+  background: color-mix(in oklab, var(--brand) 70%, transparent);
+}
+.auth-aurora-green {
+  right: -8rem;
+  bottom: -10rem;
+  background: color-mix(in oklab, var(--c-income) 30%, transparent);
+  animation-duration: 22s;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes aurora-drift {
+  to {
+    transform: translate3d(5rem, 3rem, 0) scale(1.15);
+  }
+}
+
+/* Brand name: ink with a slow gold glint passing through. Both colors pass contrast on their own. */
+.auth-title {
+  background: linear-gradient(110deg, var(--ink) 38%, var(--brand-ink) 50%, var(--ink) 62%) 0 0 / 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-glint 6s ease-in-out 1s infinite;
+}
+@keyframes title-glint {
+  0% {
+    background-position: 100% 0;
+  }
+  45%,
+  100% {
+    background-position: 0% 0;
+  }
+}
+
+.auth-card {
+  box-shadow: var(--shadow-auth);
+}
+/* A thin gold edge along the top of the card. */
+.auth-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 2rem;
+  right: 2rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand-hover), transparent);
+}
+
+/* No filter here: a filtered ancestor would cut the card's backdrop blur off from the coins behind it. */
+@keyframes auth-rise {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+}
+.auth-rise {
+  animation: auth-rise 700ms var(--ease-out) both;
+}
+
+@keyframes auth-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+.auth-shake {
+  animation: auth-shake 420ms ease-in-out both;
+}
+
+/* Hero coin: bobs, flips edge-on twice every few seconds (scaleX, so the ₫ never mirrors) and catches light. */
+.coin-bob {
+  animation: coin-bob 3.6s ease-in-out infinite;
+}
+@keyframes coin-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.coin-shadow {
+  background: radial-gradient(closest-side, rgba(122, 82, 0, 0.35), transparent);
+  animation: coin-shadow 3.6s ease-in-out infinite;
+}
+@keyframes coin-shadow {
+  50% {
+    transform: scale(0.78);
+    opacity: 0.55;
+  }
+}
+
+.coin-flip {
+  animation: coin-flip 5.5s ease-in-out 1.2s infinite;
+}
+@keyframes coin-flip {
+  0%,
+  60%,
+  100% {
+    transform: scaleX(1);
+    filter: brightness(1);
+  }
+  68% {
+    transform: scaleX(0.06);
+    filter: brightness(0.8);
+  }
+  76% {
+    transform: scaleX(1);
+    filter: brightness(1.12);
+  }
+  84% {
+    transform: scaleX(0.06);
+    filter: brightness(0.8);
+  }
+  92% {
+    transform: scaleX(1);
+    filter: brightness(1);
+  }
+}
+
+.coin-shine::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.85) 50%, transparent 60%);
+  transform: translateX(-100%);
+  animation: coin-shine 5.5s ease-in-out 0.4s infinite;
+}
+@keyframes coin-shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  22%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.coin-halo {
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--brand) 60%, transparent), transparent);
+  animation: coin-halo 3.6s ease-in-out infinite;
+}
+@keyframes coin-halo {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+.coin-orbit {
+  animation: icon-spin 16s linear infinite;
+}
+/* Counter-rotate so the small coins stay upright while they circle. */
+.coin-orbit-item {
+  animation: coin-counter 16s linear infinite;
+}
+@keyframes coin-counter {
+  to {
+    rotate: -360deg;
+  }
+}
+
+.sparkle {
+  animation: sparkle 2.6s ease-in-out infinite both;
+}
+@keyframes sparkle {
+  0%,
+  100% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1) rotate(90deg);
+    opacity: 1;
+  }
+}
+
+/* Background coins: fall the full height while drifting sideways, spinning edge-on as they go. */
+.coin-fall {
+  position: absolute;
+  top: 0;
+  animation: coin-fall var(--dur) linear var(--delay) infinite;
+  will-change: transform;
+}
+@keyframes coin-fall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(-20deg);
+    opacity: 0;
+  }
+  8%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--drift), 112vh, 0) rotate(160deg);
+    opacity: 0;
+  }
+}
+.coin-flip-loop {
+  animation: coin-spin-x 2.6s ease-in-out infinite;
+}
+@keyframes coin-spin-x {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.12);
+  }
+}
+
+/* Primary auth buttons: a light glint sweeps across now and then. */
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.btn-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.7) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: btn-sheen 4s ease-in-out 1.5s infinite;
+  pointer-events: none;
+}
+@keyframes btn-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  30%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Reduced motion: the global rule freezes every animation; moving decorations are removed outright. */
+@media (prefers-reduced-motion: reduce) {
+  .coin-fall,
+  .coin-orbit,
+  .sparkle,
+  .btn-sheen::after,
+  .coin-shine::before {
+    display: none;
+  }
 }
 
 /* ---- Toasts (sonner) ---------------------------------------------------------- */

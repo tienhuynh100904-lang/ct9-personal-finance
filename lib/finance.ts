@@ -309,6 +309,56 @@ export function budgetStatus(actual: number, planned: number): { used: number; s
   return { used, status: used > 1 ? 'over' : used >= 0.8 ? 'near' : 'ok' }
 }
 
+/*
+ * Budget warnings: a spending group that has used 80% of its monthly plan, or gone over it. The
+ * thresholds are `budgetStatus`'s, so warnings always agree with the budget meters. Savings are a
+ * target, not a cap, and never warn.
+ */
+export type BudgetAlertLevel = 'near' | 'over'
+
+export type BudgetAlert = {
+  category: SpendingCategory
+  level: BudgetAlertLevel
+  actual: number
+  planned: number
+  /** actual / planned (1 = 100%). */
+  used: number
+}
+
+const ALERT_RANK: Record<BudgetStatus, number> = { ok: 0, unplanned: 0, near: 1, over: 2 }
+
+/** Groups at or past the warning threshold, the worst first. Groups without a plan are skipped. */
+export function budgetAlerts(byCategory: Record<SpendingCategory, { actual: number; planned: number }>): BudgetAlert[] {
+  const alerts: BudgetAlert[] = []
+  for (const category of SPENDING_CATEGORIES) {
+    const { actual, planned } = byCategory[category]
+    const { used, status } = budgetStatus(actual, planned)
+    if (status === 'near' || status === 'over') alerts.push({ category, level: status, actual, planned, used })
+  }
+  return alerts.sort((a, b) => ALERT_RANK[b.level] - ALERT_RANK[a.level] || b.used - a.used)
+}
+
+/**
+ * The level a group just reached when its spending went from `before` to `after`, or `null` when
+ * nothing new happened. Only crossing a threshold counts (ok → 80%, anything → over), so logging
+ * one more coffee in a group that is already at 85% does not warn again.
+ */
+export function crossedThreshold(before: number, after: number, planned: number): BudgetAlertLevel | null {
+  if (planned <= 0) return null
+  const from = budgetStatus(before, planned).status
+  const to = budgetStatus(after, planned).status
+  if (to !== 'near' && to !== 'over') return null
+  return ALERT_RANK[to] > ALERT_RANK[from] ? to : null
+}
+
+/** A stable fingerprint of the current warnings, so a dismissed banner comes back when something new is reached. */
+export function alertsSignature(alerts: readonly BudgetAlert[]): string {
+  return alerts
+    .map((a) => `${a.category}:${a.level}`)
+    .sort()
+    .join(',')
+}
+
 export type MonthSnapshot = {
   month: number
   income: number

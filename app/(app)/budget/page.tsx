@@ -36,6 +36,7 @@ async function Budget({ searchParams }: Pick<PageProps<'/budget'>, 'searchParams
       defaultMonth={defaultMonthFor(year, today, transactions)}
       transactions={transactions}
       budgetRows={budgetRows}
+      today={today.iso}
     />
   )
 }

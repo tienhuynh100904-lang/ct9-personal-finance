@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useMonthParam, YearSelect } from '@/components/app/period'
 import { MonthlyTable, type TableRow } from '@/components/analysis/monthly-table'
 import { MonthlyBars } from '@/components/charts/monthly-bars'
+import { BudgetAlerts } from '@/components/dashboard/budget-alerts'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
@@ -19,10 +20,12 @@ import { CATEGORY_META, MEASURE_COLOR } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import {
   BUDGET_CATEGORIES,
+  budgetAlerts,
   buildBudgetPlan,
   buildYearReport,
   compareBudget,
   INCOME_CATEGORIES,
+  monthSnapshot,
   SPENDING_CATEGORIES,
   sum,
   type BudgetCategory,
@@ -57,23 +60,28 @@ export function BudgetView({
   defaultMonth,
   transactions,
   budgetRows,
+  today,
 }: {
   year: number
   years: number[]
   defaultMonth: number
   transactions: TransactionRecord[]
   budgetRows: BudgetRow[]
+  /** Today (`YYYY-MM-DD`, Vietnam time). */
+  today: string
 }) {
   const [monthParam, setMonth] = useMonthParam(defaultMonth)
   const month = monthParam === 'all' ? defaultMonth : monthParam
   const report = useMemo(() => buildYearReport(transactions, year), [transactions, year])
   const plan = useMemo(() => buildBudgetPlan(budgetRows), [budgetRows])
   const comparison = useMemo(() => compareBudget(plan, report), [plan, report])
+  const alerts = budgetAlerts(monthSnapshot(report, plan, month).spendingByCategory)
   const editorKey = `${year}-${month}-${BUDGET_CATEGORIES.map((c) => plan[c][month - 1]).join(',')}`
 
   return (
     <div className="space-y-4">
       <YearSelect year={year} years={years} />
+      <BudgetAlerts alerts={alerts} year={year} month={month} today={today} />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,26rem)_1fr]">
         <BudgetEditor key={editorKey} year={year} month={month} onMonthChange={setMonth} plan={plan} report={report} />

@@ -256,3 +256,125 @@ create policy "Owner full access" on public.push_subscriptions
 
 revoke all on public.reminder_settings, public.push_subscriptions from anon;
 grant select, insert, update, delete on public.reminder_settings, public.push_subscriptions to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 10) Giao dịch định kỳ (tiền nhà, điện nước, wifi, lương…).
+--     `recurring_transactions`: mẫu "mỗi tháng vào ngày N" (ngày 29–31 rơi
+--     vào ngày cuối của tháng ngắn hơn).
+--     `recurring_runs`: mỗi mẫu mỗi tháng tối đa 1 dòng — đã xác nhận (kèm
+--     giao dịch đã tạo) hoặc đã bỏ qua. Xoá giao dịch đó thì dòng này tự xoá
+--     theo, nên khoản định kỳ lại hiện ra để xác nhận.
+-- ---------------------------------------------------------------------
+create table if not exists public.recurring_transactions (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind         text not null check (kind in ('income', 'expense')),
+  item         text not null check (char_length(btrim(item)) between 1 and 100),
+  category     text not null,
+  amount       bigint not null check (amount > 0 and amount < 1000000000000),
+  day_of_month smallint not null check (day_of_month between 1 and 31),
+  note         text check (note is null or char_length(note) <= 500),
+  active       boolean not null default true,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  constraint recurring_category_matches_kind check (
+    (kind = 'income'  and category in ('main', 'side', 'irregular')) or
+    (kind = 'expense' and category in ('essential', 'non_essential', 'incidental', 'saving'))
+  )
+);
+
+create index if not exists recurring_transactions_user_idx on public.recurring_transactions (user_id);
+
+create table if not exists public.recurring_runs (
+  recurring_id   uuid not null references public.recurring_transactions (id) on delete cascade,
+  user_id        uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  year           smallint not null check (year between 2000 and 2100),
+  month          smallint not null check (month between 1 and 12),
+  status         text not null check (status in ('done', 'skipped')),
+  transaction_id uuid references public.transactions (id) on delete cascade,
+  created_at     timestamptz not null default now(),
+  primary key (recurring_id, year, month),
+  constraint recurring_runs_done_has_transaction check ((status = 'done') = (transaction_id is not null))
+);
+
+create index if not exists recurring_runs_user_month_idx on public.recurring_runs (user_id, year, month);
+
+drop trigger if exists recurring_transactions_set_updated_at on public.recurring_transactions;
+create trigger recurring_transactions_set_updated_at
+  before update on public.recurring_transactions
+  for each row execute function public.set_updated_at();
+
+alter table public.recurring_transactions enable row level security;
+alter table public.recurring_runs         enable row level security;
+
+drop policy if exists "Owner full access" on public.recurring_transactions;
+create policy "Owner full access" on public.recurring_transactions
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+-- Ghi được chỉ khi mẫu định kỳ cũng là của chính mình.
+drop policy if exists "Owner full access" on public.recurring_runs;
+create policy "Owner full access" on public.recurring_runs
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check (
+    (select auth.uid()) = user_id
+    and exists (
+      select 1 from public.recurring_transactions r
+      where r.id = recurring_id and r.user_id = (select auth.uid())
+    )
+  );
+
+-- Xác nhận khoản định kỳ của 1 tháng: tạo giao dịch và ghi nhận "đã xác nhận"
+-- trong cùng 1 lần. Bấm 2 lần (hoặc từ 2 thiết bị) thì lần sau bị từ chối và
+-- không tạo giao dịch trùng. Tháng đã "bỏ qua" vẫn xác nhận lại được.
+create or replace function public.confirm_recurring(
+  p_recurring_id uuid,
+  p_year integer,
+  p_month integer,
+  p_amount bigint,
+  p_occurred_on date
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_rule public.recurring_transactions;
+  v_tx   uuid;
+begin
+  if v_user is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into v_rule from public.recurring_transactions
+  where id = p_recurring_id and user_id = v_user;
+  if not found then
+    raise exception 'recurring transaction not found' using errcode = 'P0002';
+  end if;
+
+  insert into public.transactions (user_id, kind, item, category, amount, occurred_on, note)
+  values (v_user, v_rule.kind, v_rule.item, v_rule.category, coalesce(p_amount, v_rule.amount), p_occurred_on, v_rule.note)
+  returning id into v_tx;
+
+  insert into public.recurring_runs as run (recurring_id, user_id, year, month, status, transaction_id)
+  values (v_rule.id, v_user, p_year, p_month, 'done', v_tx)
+  on conflict (recurring_id, year, month) do update
+    set status = 'done', transaction_id = excluded.transaction_id
+    where run.status = 'skipped';
+  if not found then
+    raise exception 'already confirmed' using errcode = '23505';
+  end if;
+
+  return v_tx;
+end;
+$$;
+
+revoke all on public.recurring_transactions, public.recurring_runs from anon;
+revoke execute on function public.confirm_recurring(uuid, integer, integer, bigint, date) from public, anon;
+
+grant select, insert, update, delete on public.recurring_transactions, public.recurring_runs to authenticated;
+grant execute on function public.confirm_recurring(uuid, integer, integer, bigint, date) to authenticated;

@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Quên mật khẩu' }
 
 export default function ForgotPasswordPage({ searchParams }: PageProps<'/forgot-password'>) {
   return (
-    <AuthCard subtitle="Đặt lại mật khẩu qua email">
+    <AuthCard title="Quên mật khẩu?" subtitle="Đặt lại mật khẩu qua email">
       <Suspense fallback={null}>
         <ExpiredNotice searchParams={searchParams} />
       </Suspense>

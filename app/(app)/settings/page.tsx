@@ -1,8 +1,10 @@
-import { LogOut } from 'lucide-react'
+import { KeyRound, LogOut } from 'lucide-react'
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/app/page-header'
+import { connection } from 'next/server'
 import { ItemsManager } from '@/components/settings/items-manager'
+import { RecurringManager } from '@/components/settings/recurring-manager'
 import { ReminderSettings } from '@/components/settings/reminder-settings'
 import { ThemePicker } from '@/components/settings/theme-picker'
 import { PasswordForm } from '@/components/settings/password-form'
@@ -11,7 +13,8 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { signOut } from '@/lib/actions/auth'
 import { getSession } from '@/lib/auth'
-import { getItems, getItemUsage, getReminderSettings } from '@/lib/data'
+import { getItems, getItemUsage, getRecurringData, getReminderSettings } from '@/lib/data'
+import { todayISO } from '@/lib/dates'
 
 export const metadata: Metadata = { title: 'Cài đặt' }
 
@@ -30,6 +33,9 @@ export default function SettingsPage() {
           <Reminders />
         </Suspense>
         <Suspense fallback={<Skeleton className="h-96" />}>
+          <Recurring />
+        </Suspense>
+        <Suspense fallback={<Skeleton className="h-96" />}>
           <Items />
         </Suspense>
         <Card>
@@ -39,8 +45,18 @@ export default function SettingsPage() {
               <Account />
             </Suspense>
             <div className="border-t border-line pt-5">
-              <h3 className="mb-3 text-sm font-semibold">Đổi mật khẩu</h3>
-              <PasswordForm />
+              <div className="mb-4 flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand-ink">
+                  <KeyRound className="icon-swing size-5" aria-hidden />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold">Đổi mật khẩu</h3>
+                  <p className="text-xs text-muted">Mật khẩu mới phải đạt đủ các yêu cầu bên dưới.</p>
+                </div>
+              </div>
+              <Suspense fallback={<Skeleton className="h-96 max-w-md" />}>
+                <ChangePassword />
+              </Suspense>
             </div>
           </CardBody>
         </Card>
@@ -65,9 +81,31 @@ async function Reminders() {
   )
 }
 
+async function Recurring() {
+  await connection()
+  const data = await getRecurringData(todayISO())
+  if (!data) {
+    return (
+      <Card id="recurring">
+        <CardHeader title="Giao dịch định kỳ" description="Tiền nhà, điện nước, wifi, lương… tự gợi ý mỗi tháng." />
+        <CardBody>
+          <p className="text-sm text-muted">Chưa bật tính năng này. Hãy chạy lại supabase/schema.sql trong Supabase.</p>
+        </CardBody>
+      </Card>
+    )
+  }
+  return <RecurringManager rules={data.rules} />
+}
+
 async function Items() {
   const [items, usage] = await Promise.all([getItems(), getItemUsage()])
   return <ItemsManager items={items} usage={usage} />
+}
+
+/** The form needs the email so the policy can reject passwords built from it. */
+async function ChangePassword() {
+  const { user } = await getSession()
+  return <PasswordForm email={user.email} />
 }
 
 async function Account() {

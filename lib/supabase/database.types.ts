@@ -180,6 +180,78 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_transactions: {
+        Row: {
+          id: string
+          user_id: string
+          kind: Kind
+          item: string
+          category: Category
+          amount: number
+          day_of_month: number
+          note: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          kind: Kind
+          item: string
+          category: Category
+          amount: number
+          day_of_month: number
+          note?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: Kind
+          item?: string
+          category?: Category
+          amount?: number
+          day_of_month?: number
+          note?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recurring_runs: {
+        Row: {
+          recurring_id: string
+          user_id: string
+          year: number
+          month: number
+          status: 'done' | 'skipped'
+          transaction_id: string | null
+          created_at: string
+        }
+        Insert: {
+          recurring_id: string
+          user_id?: string
+          year: number
+          month: number
+          status: 'done' | 'skipped'
+          transaction_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          recurring_id?: string
+          user_id?: string
+          year?: number
+          month?: number
+          status?: 'done' | 'skipped'
+          transaction_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       item_usage: {
@@ -203,6 +275,16 @@ export type Database = {
           p_update_transactions?: boolean
         }
         Returns: undefined
+      }
+      confirm_recurring: {
+        Args: {
+          p_recurring_id: string
+          p_year: number
+          p_month: number
+          p_amount: number
+          p_occurred_on: string
+        }
+        Returns: string
       }
     }
     Enums: { [_ in never]: never }

@@ -3,6 +3,7 @@ import 'server-only'
 import { getSession } from './auth'
 import type { BudgetRow } from './finance'
 import { habitWindowStart, lastOfMonth } from './habit'
+import type { RecurringRecord, RecurringRun } from './recurring'
 import { normalizeRemindAt } from './reminders'
 import { isMissingTable } from './supabase/errors'
 import type { HabitData, ItemRecord, ItemUsage, TransactionRecord } from './types'
@@ -82,6 +83,33 @@ export async function getReminderSettings(): Promise<ReminderSettings | null> {
     throw new Error(`Không tải được cài đặt nhắc: ${error.message}`)
   }
   return { enabled: data?.enabled ?? false, remindAt: normalizeRemindAt(data?.remind_at) }
+}
+
+export type RecurringData = {
+  rules: RecurringRecord[]
+  /** What happened to each rule in `today`'s month. */
+  runs: RecurringRun[]
+  today: string
+}
+
+/** Recurring rules plus this month's confirmations, or `null` when schema.sql has not been re-run yet. */
+export async function getRecurringData(today: string): Promise<RecurringData | null> {
+  const { supabase } = await getSession()
+  const [year, month] = today.split('-').map(Number)
+  const [rules, runs] = await Promise.all([
+    supabase
+      .from('recurring_transactions')
+      .select('id, kind, item, category, amount, day_of_month, note, active')
+      .order('day_of_month')
+      .order('item'),
+    supabase.from('recurring_runs').select('recurring_id, status, transaction_id').eq('year', year).eq('month', month),
+  ])
+  for (const { error } of [rules, runs]) {
+    if (!error) continue
+    if (isMissingTable(error)) return null
+    throw new Error(`Không tải được giao dịch định kỳ: ${error.message}`)
+  }
+  return { rules: rules.data ?? [], runs: runs.data ?? [], today }
 }
 
 /** Years the year pickers offer: every year with data, plus this year and next (for planning). */

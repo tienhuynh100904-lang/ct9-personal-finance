@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getSession } from '../auth'
+import { checkPassword } from '../password-policy'
 import { clearPasswordReset, hasPasswordReset } from '../password-reset'
 import { createClient } from '../supabase/server'
 import { getSupabaseConfig } from '../supabase/env'
@@ -10,7 +11,12 @@ import type { ActionResult } from './result'
 
 export type LoginState = { error: string | null; email: string }
 
-const MIN_PASSWORD_LENGTH = 8
+/** The forms only enable saving once every rule passes; this is the server-side backstop. */
+const WEAK_PASSWORD = {
+  ok: false,
+  error: 'Mật khẩu mới chưa đủ mạnh. Hãy đáp ứng tất cả yêu cầu trong danh sách.',
+  fieldErrors: { newPassword: 'Chưa đủ mạnh.' },
+} as const
 
 function authErrorMessage(code: string | undefined): string {
   switch (code) {
@@ -73,13 +79,7 @@ export async function changePassword(input: {
   if (!currentPassword) {
     return { ok: false, error: 'Nhập mật khẩu hiện tại.', fieldErrors: { currentPassword: 'Bắt buộc.' } }
   }
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return {
-      ok: false,
-      error: `Mật khẩu mới cần ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`,
-      fieldErrors: { newPassword: `Ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` },
-    }
-  }
+  if (!checkPassword(newPassword, user.email).strong) return WEAK_PASSWORD
   if (!user.email) return { ok: false, error: 'Tài khoản không có email.' }
 
   // Re-authenticate first so a forgotten open session can't be used to take over the account.
@@ -183,15 +183,9 @@ export async function resetPassword(input: {
   if (!(await hasPasswordReset())) {
     return { ok: false, expired: true, error: 'Phiên đặt lại mật khẩu đã hết hạn. Hãy yêu cầu liên kết mới.' }
   }
-  const { supabase } = await getSession()
+  const { supabase, user } = await getSession()
   const newPassword = typeof input?.newPassword === 'string' ? input.newPassword : ''
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return {
-      ok: false,
-      error: `Mật khẩu mới cần ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`,
-      fieldErrors: { newPassword: `Ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` },
-    }
-  }
+  if (!checkPassword(newPassword, user.email).strong) return WEAK_PASSWORD
 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) return passwordUpdateFailure(error, 'resetPassword')

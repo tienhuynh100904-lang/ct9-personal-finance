@@ -10,7 +10,7 @@ export default function LoginPage() {
   const configured = getSupabaseConfig() !== null
 
   return (
-    <AuthCard subtitle="Đăng nhập để quản lý tài chính cá nhân">
+    <AuthCard title="Chào mừng trở lại" subtitle="Đăng nhập để quản lý tài chính cá nhân">
       {configured ? null : (
         <div role="alert" className="mb-5 flex gap-2.5 rounded-xl bg-surface-2 p-3 text-sm">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />

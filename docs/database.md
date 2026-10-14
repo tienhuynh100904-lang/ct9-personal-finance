@@ -82,6 +82,9 @@ erDiagram
     AUTH_USERS ||--o{ BUDGETS : "user_id"
     AUTH_USERS ||--o{ ITEMS : "user_id"
     AUTH_USERS ||--o{ DAY_MARKS : "user_id"
+    AUTH_USERS ||--o{ RECURRING_TRANSACTIONS : "user_id"
+    RECURRING_TRANSACTIONS ||--o{ RECURRING_RUNS : "recurring_id"
+    TRANSACTIONS ||--o| RECURRING_RUNS : "transaction_id"
 
     TRANSACTIONS {
         uuid id PK
@@ -116,6 +119,25 @@ erDiagram
         date day PK
         text kind "no_spend"
         timestamptz created_at
+    }
+    RECURRING_TRANSACTIONS {
+        uuid id PK
+        uuid user_id FK
+        text kind
+        text item
+        text category
+        bigint amount
+        smallint day_of_month "1-31"
+        text note
+        boolean active
+    }
+    RECURRING_RUNS {
+        uuid recurring_id PK
+        smallint year PK
+        smallint month PK
+        uuid user_id FK
+        text status "done | skipped"
+        uuid transaction_id FK
     }
 ```
 
@@ -215,6 +237,31 @@ Form nhập giao dịch dùng nó để xếp khoản mục hay dùng lên đầ
 
 **Nếu bạn nâng cấp từ bản cũ:** chạy lại toàn bộ `supabase/schema.sql` trong SQL Editor (không mất dữ liệu). Chưa chạy thì ứng dụng vẫn dùng bình thường, chỉ ẩn các nút "Không chi tiêu".
 
+### 5.6 `recurring_transactions` — mẫu giao dịch định kỳ
+
+Mỗi dòng là một khoản lặp lại hằng tháng: tiền nhà, điện nước, wifi, lương…
+
+| Cột | Ý nghĩa |
+|---|---|
+| `kind`, `item`, `category`, `amount`, `note` | Giống `transactions` (cùng ràng buộc: số tiền > 0, phân loại khớp loại) |
+| `day_of_month` | Ngày trong tháng, 1–31. Tháng ngắn hơn thì rơi vào **ngày cuối tháng** (31 → 30/4, 28 hoặc 29/2) |
+| `active` | `false` = tạm dừng, không gợi ý nữa nhưng không xoá |
+
+Mẫu **không tự tạo giao dịch**. Đến ngày, trang Tổng quan gợi ý và bạn bấm Xác nhận (sửa được số tiền) hoặc Bỏ qua. Xoá một mẫu không xoá các giao dịch nó đã tạo trước đó.
+
+### 5.7 `recurring_runs` — đã xác nhận / bỏ qua tháng nào
+
+Khoá chính `(recurring_id, year, month)`: mỗi mẫu mỗi tháng tối đa **một** dòng, nên không bao giờ bị ghi trùng.
+
+| Cột | Ý nghĩa |
+|---|---|
+| `status` | `done` = đã xác nhận, `skipped` = bỏ qua tháng này |
+| `transaction_id` | Giao dịch đã tạo khi xác nhận (bắt buộc khi `done`, trống khi `skipped`) |
+
+- `transaction_id ... on delete cascade`: xoá giao dịch đó (kể cả bấm "Hoàn tác") thì dòng này tự xoá theo, khoản định kỳ lại hiện ra chờ xác nhận.
+- Ngày ghi khi xác nhận: **ngày đến hạn** nếu đã qua (tiền nhà ngày 1 xác nhận ngày 3 vẫn ghi ngày 1), hoặc **hôm nay** nếu xác nhận sớm.
+- Quy tắc RLS chỉ cho ghi dòng có mẫu định kỳ cũng thuộc chính bạn.
+
 ## 6. Hàm và trigger
 
 **`set_updated_at()` + 2 trigger** — Trước mỗi lần sửa một dòng ở `transactions` hoặc `budgets`, trigger tự gán `updated_at = now()`. Bạn không cần tự cập nhật cột này.
@@ -225,6 +272,8 @@ Form nhập giao dịch dùng nó để xếp khoản mục hay dùng lên đầ
 3. Nếu bạn tick "đổi tên cả các giao dịch đã ghi": cập nhật cột `item` của các giao dịch cũ sang tên mới.
 
 Hàm chạy với quyền người gọi (`security invoker`), chỉ người đã đăng nhập mới gọi được và chỉ tác động lên dữ liệu của chính họ.
+
+**`confirm_recurring(mẫu, năm, tháng, số tiền, ngày)`** — Xác nhận khoản định kỳ của một tháng: tạo giao dịch và ghi `recurring_runs` trong **một** lần (thành công cả hoặc thất bại cả). Bấm hai lần hoặc xác nhận từ hai thiết bị thì lần sau bị từ chối, không tạo giao dịch trùng. Tháng đã "bỏ qua" vẫn xác nhận lại được. Cũng chạy với quyền người gọi.
 
 ## 7. Bảo mật: mỗi người chỉ thấy dữ liệu của mình
 

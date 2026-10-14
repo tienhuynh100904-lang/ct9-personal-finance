@@ -1,8 +1,9 @@
 'use client'
 
-import { ArrowLeft, LoaderCircle, MailCheck } from 'lucide-react'
+import { ArrowLeft, Mail, MailCheck, Send } from 'lucide-react'
 import Link from 'next/link'
 import { useActionState, useEffect, useState } from 'react'
+import { AuthAlert, CoinSpinner, FieldIcon } from '@/components/app/auth-ui'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { requestPasswordReset, type ResetRequestState } from '@/lib/actions/auth'
@@ -33,10 +34,11 @@ export function ForgotPasswordForm() {
   if (state.sentAt !== null) {
     return (
       <div className="text-center">
-        <span className="mx-auto grid size-12 place-items-center rounded-full bg-brand-soft text-brand-ink">
-          <MailCheck className="size-6" aria-hidden />
+        <span className="relative mx-auto grid size-14 place-items-center rounded-full bg-brand-soft text-brand-ink">
+          <span className="absolute inset-0 rounded-full border-2 border-[var(--brand-hover)] motion-safe:animate-[icon-ripple_1.6s_ease-out_infinite]" aria-hidden />
+          <MailCheck className="icon-swing size-7" aria-hidden />
         </span>
-        <h2 className="mt-4 text-lg font-semibold tracking-tight">Kiểm tra email của bạn</h2>
+        <h3 className="mt-4 text-lg font-semibold tracking-tight">Kiểm tra email của bạn</h3>
         <p className="mt-2 text-sm text-ink-2">
           Nếu <span className="font-medium break-all text-ink">{state.email}</span> có tài khoản, chúng tôi đã gửi một liên kết để
           đặt lại mật khẩu. Liên kết có hiệu lực trong thời gian ngắn và chỉ dùng được một lần.
@@ -46,7 +48,7 @@ export function ForgotPasswordForm() {
         <form action={formAction} className="mt-5">
           <input type="hidden" name="email" value={state.email} />
           <Button type="submit" variant="secondary" size="lg" className="w-full" disabled={pending || secondsLeft > 0}>
-            {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : null}
+            {pending ? <CoinSpinner /> : null}
             {secondsLeft > 0 ? `Gửi lại sau ${secondsLeft} giây` : 'Gửi lại liên kết'}
           </Button>
         </form>
@@ -62,27 +64,30 @@ export function ForgotPasswordForm() {
     <form action={formAction} className="space-y-4">
       <p className="text-sm text-ink-2">Nhập email của tài khoản, chúng tôi sẽ gửi liên kết để bạn đặt mật khẩu mới.</p>
       <Field label="Email" htmlFor="email">
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          inputMode="email"
-          defaultValue={state.email}
-          required
-          autoFocus
-          aria-invalid={Boolean(state.error)}
-        />
+        <div className="relative">
+          <FieldIcon>
+            <Mail />
+          </FieldIcon>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            inputMode="email"
+            defaultValue={state.email}
+            placeholder="ban@email.com"
+            required
+            autoFocus
+            aria-invalid={Boolean(state.error)}
+            className="pl-10"
+          />
+        </div>
       </Field>
 
-      {state.error ? (
-        <p role="alert" className="rounded-xl bg-negative/10 px-3 py-2.5 text-sm font-medium text-negative">
-          {state.error}
-        </p>
-      ) : null}
+      {state.error ? <AuthAlert key={state.error}>{state.error}</AuthAlert> : null}
 
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : null}
+      <Button type="submit" size="lg" className="btn-sheen w-full" disabled={pending}>
+        {pending ? <CoinSpinner /> : <Send className="icon-hover-wiggle size-4" aria-hidden />}
         {pending ? 'Đang gửi…' : 'Gửi liên kết đặt lại'}
       </Button>
       <Link href="/login" className={`${backLink} w-full`}>
