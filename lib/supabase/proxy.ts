@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from './database.types'
 import { getSupabaseConfig } from './env'
@@ -60,7 +61,19 @@ export async function updateSession(request: NextRequest) {
   // Do not run code between createServerClient and getClaims(): getClaims()
   // validates the JWT and refreshes an expired session.
   const { data } = await supabase.auth.getClaims()
-  const signedIn = Boolean(data?.claims?.sub)
+  let signedIn = Boolean(data?.claims?.sub)
+
+  // A token can outlive its session (revoked by a password change on another device). getSession()
+  // rejects such a session and sends the visitor to /login, so confirm with Supabase here too:
+  // otherwise this proxy would send them straight back and the two would redirect forever.
+  // 'local' scope: clear only this browser's cookies, never revoke the user's other sessions.
+  if (signedIn && isGuestPage) {
+    const { error } = await supabase.auth.getUser()
+    if (error && !isAuthRetryableFetchError(error)) {
+      await supabase.auth.signOut({ scope: 'local' })
+      signedIn = false
+    }
+  }
 
   if (!signedIn && !isPublic) {
     // Keep deep links such as /?add=expense (app-icon shortcuts) across the login round trip.

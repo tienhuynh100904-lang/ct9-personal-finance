@@ -88,6 +88,15 @@ export async function changePassword(input: {
     password: currentPassword,
   })
   if (verifyError) {
+    // Only a bad password is the user's mistake; a rate limit or an outage must not read as "wrong password".
+    if (verifyError.code !== 'invalid_credentials') {
+      console.error('changePassword: checking the current password failed', verifyError)
+      const rateLimited = verifyError.code?.startsWith('over_')
+      return {
+        ok: false,
+        error: rateLimited ? authErrorMessage(verifyError.code) : 'Không kiểm tra được mật khẩu hiện tại. Vui lòng thử lại.',
+      }
+    }
     return {
       ok: false,
       error: 'Mật khẩu hiện tại không đúng.',
@@ -95,7 +104,9 @@ export async function changePassword(input: {
     }
   }
 
-  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  // The project may require the current password again on the update itself (Supabase "Require current password
+  // when updating"); without it the update fails with "Current password required when setting new password".
+  const { error } = await supabase.auth.updateUser({ password: newPassword, current_password: currentPassword })
   if (error) return passwordUpdateFailure(error, 'changePassword')
 
   // Other devices keep their refresh tokens after a password change: revoke them so a lost phone loses access.

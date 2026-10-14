@@ -4,6 +4,7 @@ import { LoaderCircle } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
+import { PasswordInput } from '@/components/ui/password-input'
 import { toast } from '@/lib/toast'
 import { runAction } from '@/lib/run-action'
 import { changePassword } from '@/lib/actions/auth'
@@ -45,9 +46,8 @@ export function PasswordForm() {
       }}
     >
       <Field label="Mật khẩu hiện tại" htmlFor="current-password" error={errors.currentPassword}>
-        <Input
+        <PasswordInput
           id="current-password"
-          type="password"
           autoComplete="current-password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
@@ -56,9 +56,8 @@ export function PasswordForm() {
         />
       </Field>
       <Field label="Mật khẩu mới" htmlFor="new-password" error={errors.newPassword} hint="Ít nhất 8 ký tự">
-        <Input
+        <PasswordInput
           id="new-password"
-          type="password"
           autoComplete="new-password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
