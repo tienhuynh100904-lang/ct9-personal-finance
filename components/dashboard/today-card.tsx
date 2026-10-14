@@ -252,7 +252,7 @@ export function TodayCard({ habit }: { habit: HabitData }) {
           </Button>
         </div>
         {canMarkToday ? (
-          <Button variant="brand" disabled={pending} onClick={() => runMark(today)} className="mt-1 w-full">
+          <Button variant="brand" disabled={pending} onClick={() => runMark(today)} className="mt-2 w-full">
             <Leaf className="icon-sway size-4" aria-hidden />
             Hôm nay không chi tiêu
           </Button>

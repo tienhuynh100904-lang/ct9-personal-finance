@@ -25,7 +25,7 @@ export function PasswordForm() {
       const result = await runAction(() => changePassword({ currentPassword, newPassword }))
       if (!result) return
       if (result.ok) {
-        toast.success('Đã đổi mật khẩu', { description: 'Lần đăng nhập sau hãy dùng mật khẩu mới.' })
+        toast.success('Đã đổi mật khẩu', { description: 'Các thiết bị khác sẽ phải đăng nhập lại bằng mật khẩu mới.' })
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')

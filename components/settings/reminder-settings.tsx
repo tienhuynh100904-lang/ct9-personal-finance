@@ -1,12 +1,12 @@
 'use client'
 
-import { BellRing, LoaderCircle, Send, Smartphone, TriangleAlert } from 'lucide-react'
+import { BellRing, Smartphone, TriangleAlert } from 'lucide-react'
 import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { ChoiceChips } from '@/components/ui/choice'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { removePushSubscription, savePushSubscription, saveReminderSettings, sendTestReminder } from '@/lib/actions/reminders'
+import { removePushSubscription, savePushSubscription, saveReminderSettings } from '@/lib/actions/reminders'
 import { readPushSupport, subscribeThisDevice } from '@/lib/push-client'
 import { runAction } from '@/lib/run-action'
 import { toast } from '@/lib/toast'
@@ -158,18 +158,6 @@ export function ReminderSettings({ initial }: { initial: { enabled: boolean; rem
     }
   }
 
-  async function sendTest() {
-    setBusy(true)
-    try {
-      const result = await runAction(() => sendTestReminder())
-      if (!result) return
-      if (result.ok) toast.success('Đã gửi thông báo thử', { description: 'Vài giây nữa sẽ hiện trên thiết bị của bạn.' })
-      else toast.error(result.error)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function forgetThisDevice() {
     setBusy(true)
     try {
@@ -250,7 +238,6 @@ export function ReminderSettings({ initial }: { initial: { enabled: boolean; rem
             <Select label="Phút" value={minute} onValueChange={(m) => void changeTime(`${hour}:${m}`)} options={MINUTES} triggerClassName="h-10" />
           </div>
         ) : null}
-        <p className="mt-2 text-xs text-muted">Giờ Việt Nam. Thông báo có thể đến trễ tối đa khoảng 15 phút.</p>
       </div>
 
       {enabled && deviceOn === false && support === 'ok' && !blocked ? (
@@ -267,10 +254,6 @@ export function ReminderSettings({ initial }: { initial: { enabled: boolean; rem
 
       {deviceOn ? (
         <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-          <Button variant="secondary" onClick={() => void sendTest()} disabled={busy}>
-            {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Send className="size-4" aria-hidden />}
-            Gửi thử thông báo
-          </Button>
           <Button variant="ghost" onClick={() => void forgetThisDevice()} disabled={busy}>
             Gỡ thiết bị này
           </Button>

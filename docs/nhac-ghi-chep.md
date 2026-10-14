@@ -45,7 +45,7 @@ Một thông báo được coi là "đến giờ" từ giờ bạn chọn cho t�
 | [`lib/dates.ts`](../lib/dates.ts) | `appClockAt`: ngày + phút trong ngày theo giờ Việt Nam |
 | [`app/api/reminders/run/route.ts`](../app/api/reminders/run/route.ts) | Route cron gọi mỗi 15 phút; kiểm tra `CRON_SECRET` |
 | [`lib/push.ts`](../lib/push.ts) | Gửi Web Push (thư viện `web-push`), dọn thiết bị đã hết hạn |
-| [`lib/actions/reminders.ts`](../lib/actions/reminders.ts) | Server action: lưu cài đặt, đăng ký/gỡ thiết bị, gửi thử |
+| [`lib/actions/reminders.ts`](../lib/actions/reminders.ts) | Server action: lưu cài đặt, đăng ký/gỡ thiết bị |
 | [`lib/supabase/admin.ts`](../lib/supabase/admin.ts) | Client dùng service key, **chỉ** cho route cron |
 | [`public/sw.js`](../public/sw.js) | Service worker: hiện thông báo và mở app khi bấm |
 | [`components/settings/reminder-settings.tsx`](../components/settings/reminder-settings.tsx) | Giao diện trong Cài đặt |
@@ -110,7 +110,7 @@ Mở [`supabase/reminders-cron.sql`](../supabase/reminders-cron.sql), thay `<CRO
 2. (Khuyên dùng) Menu ⋮ → **Cài đặt ứng dụng** / **Thêm vào màn hình chính**, rồi mở app từ biểu tượng mới. Thông báo ổn định hơn khi app đã được cài.
 3. **Cài đặt → Nhắc ghi chép** → gạt công tắc **Bật** → bấm **Cho phép** khi Chrome hỏi quyền thông báo.
 4. Chọn giờ nhắc (Sáng / Trưa / Chiều / Tối hoặc "Giờ khác").
-5. Bấm **Gửi thử thông báo**: vài giây sau điện thoại phải hiện thông báo.
+5. Muốn thử ngay mà không chờ đến giờ nhắc thì làm mục 5.3 (ép "đã đến giờ" rồi gọi route cron): thông báo sẽ hiện trên điện thoại.
 
 Muốn nhận trên nhiều thiết bị (điện thoại và máy tính) thì làm bước 7 trên từng thiết bị; mỗi thiết bị tự đăng ký riêng.
 
@@ -126,9 +126,9 @@ npm test
 
 `tests/reminders.test.ts` kiểm tra: có đúng 10 câu khác nhau; câu được chọn **không bao giờ** trùng câu hôm qua và mọi câu đều có thể được chọn; giờ nhắc chỉ nhận bội số 15 phút; "đến giờ" đúng trong khoảng 3 tiếng, chỉ một lần mỗi ngày, không tràn qua nửa đêm; giờ Việt Nam đúng quanh nửa đêm.
 
-### 5.2. Đăng ký và thông báo (trên máy hoặc điện thoại)
+### 5.2. Đăng ký thiết bị (trên máy hoặc điện thoại)
 
-Chạy `npm run dev` rồi vào `http://localhost:3000/settings` bằng Chrome trên máy tính (localhost được trình duyệt coi là an toàn nên Web Push chạy được). Bật nhắc → **Gửi thử thông báo**. Thấy thông báo hiện lên là phần khoá VAPID, service worker và đăng ký thiết bị đã đúng.
+Chạy `npm run dev` rồi vào `http://localhost:3000/settings` bằng Chrome trên máy tính (localhost được trình duyệt coi là an toàn nên Web Push chạy được). Bật nhắc và bấm **Cho phép**: nếu không báo lỗi và công tắc đã bật thì thiết bị đã đăng ký được (có thể kiểm tra thêm một dòng mới trong bảng `push_subscriptions`). Để thấy thông báo hiện lên, làm tiếp mục 5.3.
 
 Trên điện thoại thì test với bản đã deploy (điện thoại không vào được `localhost` của máy tính).
 
@@ -209,9 +209,9 @@ Muốn sửa câu: chỉnh trực tiếp trong mảng đó (giữ nguyên **10 c
 | Thẻ báo "Chưa bật tính năng nhắc" | Chưa chạy schema mới | Chạy lại `supabase/schema.sql` |
 | Báo "Chưa cấu hình khoá thông báo" | Thiếu `NEXT_PUBLIC_VAPID_PUBLIC_KEY` ở bản build | Thêm biến rồi **Redeploy** |
 | Công tắc xám, không bật được | Trình duyệt chặn thông báo, hoặc không hỗ trợ | Cho phép thông báo của trang trong cài đặt trình duyệt; iPhone cần Thêm vào Màn hình chính |
-| "Gửi thử" báo chưa có thiết bị | Chưa đăng ký trên thiết bị này | Tắt rồi bật lại công tắc, hoặc bấm "Bật trên thiết bị này" |
-| "Gửi thử" chạy nhưng không thấy thông báo | Chế độ không làm phiền, tiết kiệm pin, hoặc thông báo của Chrome bị tắt trong Cài đặt Android | Bật thông báo cho Chrome/app; tắt tối ưu pin cho Chrome |
-| Gửi thử được nhưng đến giờ không có | Cron chưa chạy hoặc sai khoá | Xem `net._http_response` (mục 5.4): `401` = `CRON_SECRET` trên Vercel khác giá trị trong Vault; `500` = thiếu biến môi trường |
+| Route cron báo `"skippedNoDevice":1` | Chưa đăng ký trên thiết bị này | Tắt rồi bật lại công tắc, hoặc bấm "Bật trên thiết bị này" |
+| Route cron báo `"sent":1` nhưng không thấy thông báo | Chế độ không làm phiền / Focus assist, tiết kiệm pin, hoặc thông báo của Chrome bị tắt trong Cài đặt hệ điều hành | Bật thông báo cho Chrome/app; tắt tối ưu pin cho Chrome |
+| Gọi route cron được nhưng đến giờ không có | Cron chưa chạy hoặc sai khoá | Xem `net._http_response` (mục 5.4): `401` = `CRON_SECRET` trên Vercel khác giá trị trong Vault; `500` = thiếu biến môi trường |
 | Thông báo đến trễ | Cron chạy mỗi 15 phút; Android có thể hoãn khi tiết kiệm pin | Bình thường tới ~15 phút; tắt tối ưu pin cho Chrome |
 | Cron báo `succeeded` nhưng `status_code` trống | pg_net chưa kịp gọi hoặc URL sai | Kiểm tra URL trong `reminders-cron.sql` |
 | Mất nhắc sau thời gian dài không dùng | Gói Supabase miễn phí tạm dừng project sau 7 ngày không truy cập | Vào dashboard bấm Restore (xem README) |

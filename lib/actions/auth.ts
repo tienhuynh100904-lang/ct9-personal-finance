@@ -97,7 +97,11 @@ export async function changePassword(input: {
 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) return passwordUpdateFailure(error, 'changePassword')
-  return { ok: true, message: 'Đã đổi mật khẩu.' }
+
+  // Other devices keep their refresh tokens after a password change: revoke them so a lost phone loses access.
+  const { error: signOutError } = await supabase.auth.signOut({ scope: 'others' })
+  if (signOutError) console.error('changePassword: signing out other devices failed', signOutError)
+  return { ok: true, message: 'Đã đổi mật khẩu. Các thiết bị khác sẽ phải đăng nhập lại.' }
 }
 
 function passwordUpdateFailure(

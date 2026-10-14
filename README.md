@@ -79,7 +79,7 @@ Trên điện thoại: mở trang web → *Thêm vào màn hình chính* để d
 
 ## 4. Quên mật khẩu (cần cấu hình Supabase một lần)
 
-Trang đăng nhập có link **Quên mật khẩu?** → `/forgot-password` (nhập email) → email có liên kết → `/auth/confirm` kiểm tra liên kết → `/reset-password` (đặt mật khẩu mới, các thiết bị khác bị đăng xuất). Trang đặt mật khẩu chỉ mở được ngay sau khi bấm liên kết trong email (cookie 15 phút); người đã đăng nhập không vào thẳng được để bỏ qua bước "mật khẩu hiện tại".
+Trang đăng nhập có link **Quên mật khẩu?** → `/forgot-password` (nhập email) → email có liên kết → `/auth/confirm` kiểm tra liên kết → `/reset-password` (đặt mật khẩu mới, các thiết bị khác bị đăng xuất). Trang đặt mật khẩu chỉ mở được ngay sau khi bấm liên kết trong email (cookie 15 phút); người đã đăng nhập không vào thẳng được để bỏ qua bước "mật khẩu hiện tại". Đổi mật khẩu trong **Cài đặt** cũng đăng xuất các thiết bị khác.
 
 Trong Supabase cần:
 
