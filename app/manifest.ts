@@ -10,10 +10,12 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: 'vi',
     start_url: '/',
     display: 'standalone',
-    // Splash screen only. A manifest has one colour for both themes, so it never sets
-    // `theme_color`: on Android that would paint the installed app's bottom navigation bar light
-    // even in dark mode. The status bar follows the page's theme-color meta (lib/theme.ts) instead.
-    background_color: THEME_COLORS.light,
+    // One colour for both themes (a manifest cannot vary it). Besides the splash screen, Android 15+
+    // fills the installed app's window with it, and that shows through the transparent bottom
+    // navigation bar. Dark, so the bar is not a pale strip in dark mode. `theme_color` is left out on
+    // purpose: the status bar follows the page's theme-color meta (lib/theme.ts), and setting it here
+    // would also paint the navigation bar on Android 14 and older.
+    background_color: THEME_COLORS.dark,
     icons: [
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml' },
       { src: '/apple-icon', sizes: '180x180', type: 'image/png' },
