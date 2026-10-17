@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Smartphone,
   Tags,
+  Target,
   TriangleAlert,
   WalletMinimal,
 } from 'lucide-react'
@@ -40,6 +41,7 @@ const TOC: { id: string; label: string }[] = [
   { id: 'dinh-ky', label: 'Khoản định kỳ' },
   { id: 'ngan-sach', label: 'Ngân sách' },
   { id: 'canh-bao', label: 'Cảnh báo' },
+  { id: 'muc-tieu', label: 'Mục tiêu' },
   { id: 'thu-chi', label: 'Sổ thu chi' },
   { id: 'phan-tich', label: 'Phân tích' },
   { id: 'phan-loai', label: 'Phân loại' },
@@ -225,6 +227,39 @@ export default function GuidePage() {
             'Ngay lúc bạn lưu khoản chi làm một nhóm chạm ngưỡng, app hiện thông báo. Chỉ báo một lần khi chạm ngưỡng, không nhắc lại mỗi khoản sau.',
             'Bấm ✕ để ẩn. Cảnh báo hiện lại khi có nhóm mới chạm ngưỡng.',
             'Tiết kiệm/đầu tư là mục tiêu, không phải hạn mức, nên không có cảnh báo.',
+          ]}
+        />
+      </Section>
+
+      <Section id="muc-tieu" icon={Target} title="Mục tiêu: xây quỹ từ tiền tiết kiệm" link={{ href: '/goals', label: 'Mở Mục tiêu' }}>
+        <p>
+          Mỗi khoản bạn ghi vào nhóm <strong>Tiết kiệm/Đầu tư</strong> thành <strong>tiền tiết kiệm chưa phân bổ</strong>. Ở trang Mục tiêu, bạn chia
+          số tiền đó vào các quỹ, ví dụ đã tiết kiệm 35 triệu thì bỏ 20 triệu vào Quỹ khẩn cấp và 15 triệu vào quỹ Đi du lịch.
+        </p>
+        <Steps
+          items={[
+            <>
+              <strong>Quỹ khẩn cấp</strong> có sẵn: nhập chi phí cố định 1 tháng và số tháng dự phòng (nên 3–6 tháng). App gợi ý số chi tiêu thiết yếu
+              trung bình 3 tháng qua.
+            </>,
+            <>
+              <strong>Tạo quỹ mới</strong> cho từng mục tiêu: tên, số tiền, số tháng, nơi cất (ngân hàng, ứng dụng tài chính, MMF) và lợi nhuận kỳ vọng
+              (tối đa 12%/năm). App tính ngay mỗi tháng cần tiết kiệm bao nhiêu.
+            </>,
+            <>
+              Bấm <strong>Phân bổ vào quỹ</strong> để chia tiền vào một hoặc nhiều quỹ cùng lúc. <strong>Rút</strong> để đưa tiền về lại phần chưa phân bổ.
+            </>,
+          ]}
+        />
+        <Points
+          items={[
+            'Mỗi quỹ cho biết số dư (gồm lãi tính theo ngày), phần trăm hoàn thành, đúng hay chậm tiến độ và số cần gửi mỗi tháng từ giờ để kịp hạn.',
+            '4 cột mốc đánh giá ở 25%, 50%, 75% và 100% thời gian. Chi tiết quỹ có lịch sử nạp/rút và ghi chú.',
+            <>
+              Đặt ngân sách <strong>Tiết kiệm/Đầu tư</strong> của tháng để app cho biết kế hoạch có khả thi: tổng các quỹ cần nhiều hơn ngân sách là chưa
+              khả thi.
+            </>,
+            'Quỹ đã dùng xong thì lưu trữ. Bấm biểu tượng thùng rác để xoá một quỹ (kể cả Quỹ khẩn cấp): tiền của quỹ quay về phần chưa phân bổ, các giao dịch tiết kiệm đã ghi vẫn giữ nguyên.',
           ]}
         />
       </Section>

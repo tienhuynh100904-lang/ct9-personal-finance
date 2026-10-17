@@ -20,6 +20,8 @@ export function Calendar({
   onChange,
   today,
   label = 'Chọn ngày',
+  min = MIN_DATE,
+  max = MAX_DATE,
   className,
 }: {
   /** The chosen day, `YYYY-MM-DD`. */
@@ -28,6 +30,9 @@ export function Calendar({
   /** Today in app time; outlined in the grid. */
   today: string
   label?: string
+  /** Earliest / latest day that can be picked (`YYYY-MM-DD`); days outside are greyed out. */
+  min?: string
+  max?: string
   className?: string
 }) {
   const [view, setView] = useState(() => {
@@ -61,8 +66,9 @@ export function Calendar({
   // One tab stop for the whole grid (roving): the chosen day, or else the 1st of the month.
   const tabStop = inView(value) ? value : monthStart
 
-  const prevDisabled = addMonths(monthStart, -1) < MIN_DATE.slice(0, 7) + '-01'
-  const nextDisabled = addMonths(monthStart, 1) > MAX_DATE
+  // The previous month ends the day before this one starts; the next one starts a month later.
+  const prevDisabled = monthStart <= min
+  const nextDisabled = addMonths(monthStart, 1) > max
 
   function showMonth(delta: number) {
     const next = addMonths(monthStart, delta)
@@ -87,7 +93,7 @@ export function Calendar({
     const target = moves[event.key]
     if (!target) return
     event.preventDefault()
-    if (target < MIN_DATE || target > MAX_DATE) return
+    if (target < min || target > max) return
     if (inView(target)) {
       gridRef.current?.querySelector<HTMLElement>(`[data-date="${target}"]`)?.focus()
     } else {
@@ -124,6 +130,7 @@ export function Calendar({
           if (!iso) return <span key={`blank-${index}`} aria-hidden className="h-11 sm:h-10" />
           const selected = iso === value
           const isToday = iso === today
+          const outOfRange = iso < min || iso > max
           return (
             <button
               key={iso}
@@ -133,9 +140,10 @@ export function Calendar({
               aria-label={longDateLabel(iso)}
               aria-pressed={selected}
               aria-current={isToday ? 'date' : undefined}
+              disabled={outOfRange}
               onClick={() => onChange(iso)}
               className={cn(
-                'mx-auto grid h-11 w-11 place-items-center rounded-full text-[15px] tabular-nums transition-colors sm:h-10 sm:w-10 sm:text-sm',
+                'mx-auto grid h-11 w-11 place-items-center rounded-full text-[15px] tabular-nums transition-colors disabled:pointer-events-none disabled:opacity-30 sm:h-10 sm:w-10 sm:text-sm',
                 selected
                   ? 'bg-brand font-semibold text-on-brand'
                   : isToday

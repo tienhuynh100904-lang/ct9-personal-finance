@@ -1,5 +1,6 @@
 import { isValidISODate } from './dates'
 import { BUDGET_CATEGORIES, isCategoryOf, type BudgetCategory, type Category, type Kind } from './finance'
+import { MAX_GOAL_RATE_BP, type GoalKind, type GoalPlace } from './goals'
 
 export const MAX_AMOUNT = 999_999_999_999
 export const MAX_ITEM_LENGTH = 100
@@ -148,5 +149,111 @@ export function validateBudgetMonth(input: unknown): Validated<BudgetMonthInput,
   return {
     ok: true,
     value: { year, month, values, applyToFollowingMonths: raw.applyToFollowingMonths === true },
+  }
+}
+
+export const MAX_GOAL_NAME_LENGTH = 60
+export const MAX_GOAL_NOTE_LENGTH = 1000
+
+export type GoalInput = {
+  id?: string
+  kind: GoalKind
+  name: string
+  /** Custom goals only; the emergency fund's target is monthly_expense × reserve_months. */
+  target_amount?: number
+  monthly_expense?: number | null
+  reserve_months?: number | null
+  start_date: string
+  months: number
+  /** Basis points: 400 = 4%/năm, at most MAX_GOAL_RATE_BP. */
+  rate_bp: number
+  place: GoalPlace
+  initial_amount: number
+  note?: string | null
+}
+
+export type GoalValues = {
+  kind: GoalKind
+  name: string
+  target_amount: number
+  monthly_expense: number | null
+  reserve_months: number | null
+  start_date: string
+  months: number
+  rate_bp: number
+  place: GoalPlace
+  initial_amount: number
+  note: string | null
+}
+
+function isWholeAmount(value: unknown, min: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= MAX_AMOUNT
+}
+
+/** Runs on the client for instant feedback and again on the server, where it is authoritative. */
+export function validateGoal(input: unknown): Validated<GoalValues, FieldErrors<GoalInput>> {
+  const raw = (input ?? {}) as Record<string, unknown>
+  const errors: FieldErrors<GoalInput> = {}
+  const kind: GoalKind = raw.kind === 'emergency' ? 'emergency' : 'custom'
+
+  const name = typeof raw.name === 'string' ? raw.name.trim().replace(/\s+/g, ' ') : ''
+  if (!name) errors.name = 'Nhập tên quỹ.'
+  else if (name.length > MAX_GOAL_NAME_LENGTH) errors.name = `Tối đa ${MAX_GOAL_NAME_LENGTH} ký tự.`
+
+  let target = 0
+  let monthlyExpense: number | null = null
+  let reserveMonths: number | null = null
+  if (kind === 'emergency') {
+    if (!isWholeAmount(raw.monthly_expense, 1)) errors.monthly_expense = 'Nhập chi phí cố định 1 tháng.'
+    else monthlyExpense = raw.monthly_expense
+    const months = raw.reserve_months
+    if (typeof months !== 'number' || !Number.isInteger(months) || months < 1 || months > 24) errors.reserve_months = 'Chọn từ 1 đến 24 tháng.'
+    else reserveMonths = months
+    if (monthlyExpense !== null && reserveMonths !== null) {
+      target = monthlyExpense * reserveMonths
+      if (target > MAX_AMOUNT) errors.monthly_expense = 'Số tiền quá lớn.'
+    }
+  } else if (!isWholeAmount(raw.target_amount, 1)) {
+    errors.target_amount = 'Nhập số tiền mục tiêu lớn hơn 0.'
+  } else {
+    target = raw.target_amount
+  }
+
+  const start = typeof raw.start_date === 'string' ? raw.start_date : ''
+  if (!isValidISODate(start) || start < '2000-01-01' || start > '2100-12-31') errors.start_date = 'Ngày không hợp lệ.'
+
+  const months = raw.months
+  if (typeof months !== 'number' || !Number.isInteger(months) || months < 1 || months > 600) errors.months = 'Từ 1 đến 600 tháng.'
+
+  const rate = raw.rate_bp
+  if (typeof rate !== 'number' || !Number.isInteger(rate) || rate < 0 || rate > MAX_GOAL_RATE_BP) {
+    errors.rate_bp = `Lợi nhuận kỳ vọng từ 0 đến ${MAX_GOAL_RATE_BP / 100}%/năm. Cao hơn là không thực tế.`
+  }
+
+  const place = raw.place
+  if (place !== 'bank' && place !== 'app' && place !== 'mmf') errors.place = 'Chọn nơi cất quỹ.'
+
+  const initial = raw.initial_amount ?? 0
+  if (!isWholeAmount(initial, 0)) errors.initial_amount = 'Số tiền không hợp lệ.'
+
+  const note = typeof raw.note === 'string' ? raw.note.trim() : ''
+  if (note.length > MAX_GOAL_NOTE_LENGTH) errors.note = `Tối đa ${MAX_GOAL_NOTE_LENGTH} ký tự.`
+
+  if (Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors }
+  return {
+    ok: true,
+    value: {
+      kind,
+      name,
+      target_amount: target,
+      monthly_expense: monthlyExpense,
+      reserve_months: reserveMonths,
+      start_date: start,
+      months: months as number,
+      rate_bp: rate as number,
+      place: place as GoalPlace,
+      initial_amount: initial as number,
+      note: note || null,
+    },
   }
 }

@@ -8,6 +8,7 @@
 | **Thu chi** `/transactions` | Sheet *Thu Chi*: thêm / sửa / xoá giao dịch, lọc theo tháng, loại, phân loại, tìm kiếm không dấu, xuất CSV mở được bằng Excel |
 | **Phân tích** `/analytics` | Sheet *Phân loại thu chi*: tổng quan cả năm, 5 biểu đồ, bảng 12 tháng (số tiền / tỷ trọng), chi tiết từng khoản mục |
 | **Ngân sách** `/budget` | Sheet *Lập ngân sách*: dự kiến, thực tế, chênh lệch cho thu nhập, chi tiêu, tiết kiệm/đầu tư |
+| **Mục tiêu** `/goals` | File *Theo dõi mục tiêu tài chính*: Quỹ khẩn cấp có sẵn + quỹ mục tiêu tự tạo; chia tiền tiết kiệm vào quỹ, tính số cần gửi mỗi tháng, lãi theo ngày, cột mốc 25/50/75/100%, đánh giá kế hoạch có khả thi |
 | **Cài đặt** `/settings` | **Giao diện Sáng / Tối / Theo thiết bị**, **nhắc ghi chép mỗi ngày**, **giao dịch định kỳ**, danh mục khoản mục (gợi ý khi nhập), đổi mật khẩu, đăng xuất |
 
 ## Thiết kế để bạn quen ghi chép mỗi ngày
@@ -17,6 +18,7 @@
 - **Ghi trong vài giây:** nút "Ghi" nổi ở giữa thanh dưới (vùng ngón cái); chạm một khoản trong **Ghi nhanh** là form mở sẵn khoản mục, phân loại và số tiền lần trước; nút Lưu luôn nằm trên bàn phím; có "Hoàn tác" ngay sau khi lưu.
 - **Một lý do để mở app mỗi ngày:** "Hôm nay còn được chi" = (ngân sách chi tiêu tháng − đã chi các ngày trước) ÷ số ngày còn lại. Ghi một khoản chi là con số giảm ngay.
 - **Bớt nhập lặp lại:** tiền nhà, điện nước, wifi, lương… đặt một lần thành **khoản định kỳ** (trong Cài đặt, hoặc tick "Lặp lại hằng tháng" khi ghi). Đến ngày, trang Tổng quan gợi ý sẵn: bấm **Xác nhận** (sửa được số tiền, ví dụ tiền điện tháng này) hoặc **Bỏ qua**. App không tự ghi khi bạn chưa xác nhận.
+- **Xây quỹ từ tiền đã tiết kiệm:** mọi khoản ghi vào nhóm *Tiết kiệm/Đầu tư* thành "tiền chưa phân bổ" ở trang **Mục tiêu**. Chia số đó vào một hoặc nhiều quỹ (Quỹ khẩn cấp có sẵn, các quỹ khác tự tạo); app tính mỗi tháng cần gửi bao nhiêu để kịp hạn và kế hoạch có khả thi so với ngân sách tiết kiệm.
 - **Cảnh báo ngân sách:** khi một nhóm chi (thiết yếu, không thiết yếu, phát sinh) đạt **80%** hoặc **vượt** kế hoạch tháng, trang Tổng quan và Ngân sách hiện cảnh báo, và ngay lúc bạn lưu khoản chi làm vượt ngưỡng sẽ có thông báo.
 - **Chuỗi ngày không bắt lỗi:** hôm nay chưa ghi thì chưa tính là bỏ lỡ; ngày thật sự không chi thì bấm **"Không chi tiêu"** để giữ chuỗi; quên một ngày thì **ghi bù** là chuỗi nối lại. Thông báo luôn nhẹ nhàng.
 - **Chạm giữ biểu tượng app** (Android) để vào thẳng "Ghi khoản chi" / "Ghi khoản thu".
@@ -38,7 +40,7 @@ Công thức được giữ đúng như Excel (đã đối chiếu 390 ô với 
 
 File `supabase/seed.local.sql` đã được tạo sẵn từ `doc/T10-T12-2026 (1).xlsx` (36 giao dịch, ngân sách 2026, 20 khoản mục). Sau bước 3 ở trên, mở **SQL Editor**, dán nội dung file đó và **Run**. Chạy lại cũng không bị nhân đôi.
 
-> **Nâng cấp từ bản cũ:** các bản mới thêm bảng `day_marks` (ngày "Không chi tiêu"), `recurring_transactions` + `recurring_runs` và hàm `confirm_recurring` (giao dịch định kỳ). Chạy lại toàn bộ `supabase/schema.sql` trong SQL Editor, không mất dữ liệu. Chưa chạy thì app vẫn dùng bình thường, chỉ ẩn phần định kỳ.
+> **Nâng cấp từ bản cũ:** các bản mới thêm bảng `day_marks` (ngày "Không chi tiêu"), `recurring_transactions` + `recurring_runs` và hàm `confirm_recurring` (giao dịch định kỳ), `goals` + `goal_allocations`, view `savings_pool` và hàm `allocate_savings` (mục tiêu / quỹ). Chạy lại toàn bộ `supabase/schema.sql` trong SQL Editor, không mất dữ liệu. Chưa chạy thì app vẫn dùng bình thường: phần định kỳ được ẩn và trang Mục tiêu báo cần chạy lại schema.
 
 Nếu muốn tạo lại từ file Excel mới hơn:
 

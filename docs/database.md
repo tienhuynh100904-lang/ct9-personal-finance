@@ -85,6 +85,8 @@ erDiagram
     AUTH_USERS ||--o{ RECURRING_TRANSACTIONS : "user_id"
     RECURRING_TRANSACTIONS ||--o{ RECURRING_RUNS : "recurring_id"
     TRANSACTIONS ||--o| RECURRING_RUNS : "transaction_id"
+    AUTH_USERS ||--o{ GOALS : "user_id"
+    GOALS ||--o{ GOAL_ALLOCATIONS : "goal_id"
 
     TRANSACTIONS {
         uuid id PK
@@ -138,6 +140,29 @@ erDiagram
         uuid user_id FK
         text status "done | skipped"
         uuid transaction_id FK
+    }
+    GOALS {
+        uuid id PK
+        uuid user_id FK
+        text kind "emergency | custom"
+        text name
+        bigint target_amount
+        bigint monthly_expense "chỉ quỹ khẩn cấp"
+        smallint reserve_months "chỉ quỹ khẩn cấp"
+        date start_date
+        smallint months
+        smallint rate_bp "400 = 4%/năm"
+        text place "bank | app | mmf"
+        bigint initial_amount
+        timestamptz archived_at
+    }
+    GOAL_ALLOCATIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid goal_id FK
+        bigint amount "dương = nạp, âm = rút"
+        date allocated_on
+        text note
     }
 ```
 
@@ -262,6 +287,33 @@ Khoá chính `(recurring_id, year, month)`: mỗi mẫu mỗi tháng tối đa *
 - Ngày ghi khi xác nhận: **ngày đến hạn** nếu đã qua (tiền nhà ngày 1 xác nhận ngày 3 vẫn ghi ngày 1), hoặc **hôm nay** nếu xác nhận sớm.
 - Quy tắc RLS chỉ cho ghi dòng có mẫu định kỳ cũng thuộc chính bạn.
 
+### 5.8 `goals` — quỹ mục tiêu
+
+Tương ứng file Excel *Theo dõi mục tiêu tài chính*: mỗi quỹ một dòng, không giới hạn số lượng.
+
+| Cột | Ý nghĩa |
+|---|---|
+| `kind` | `emergency` = Quỹ khẩn cấp (mỗi tài khoản tối đa **một**), `custom` = quỹ tự tạo |
+| `target_amount` | Số tiền mục tiêu. Với quỹ khẩn cấp luôn bằng `monthly_expense × reserve_months` (database kiểm tra) |
+| `monthly_expense`, `reserve_months` | Chỉ quỹ khẩn cấp: chi phí cố định 1 tháng và số tháng dự phòng (1–24) |
+| `start_date`, `months` | Ngày bắt đầu và số tháng thực hiện. Hạn = ngày bắt đầu + số tháng |
+| `rate_bp` | Lợi nhuận kỳ vọng tính bằng phần vạn: 400 = 4%/năm. Tối đa 1200 (12%/năm), giống giới hạn "không thực tế" của file Excel |
+| `place` | Nơi cất quỹ: `bank` (nhận đủ gốc + lãi), `app` (gốc + 95% lãi), `mmf` (99,9% tổng giá trị) |
+| `initial_amount` | Tiền đã có sẵn cho quỹ từ trước, không lấy từ tiền tiết kiệm trong app |
+| `archived_at` | Đã lưu trữ (quỹ đã dùng xong). Tiền của quỹ vẫn tính là đã dùng |
+
+**Các con số tính ra (không lưu)**, ở [`lib/goals.ts`](../lib/goals.ts), đã đối chiếu với sheet "Ví dụ" của file Excel:
+- *Cần tiết kiệm mỗi tháng (kế hoạch)* = `ROUNDUP(PMT(lãi/12, số tháng, −đã có, mục tiêu, 1), −3)`.
+- *Số dư* = các lần nạp/rút cộng lãi đơn theo **số ngày thực tế** giữa các lần (số dư × lãi ÷ 365 × số ngày), tính tới hôm nay.
+- *Cần gửi mỗi tháng từ giờ* = tính lại từ số dư hiện tại và số tháng còn lại (cột "Cần tiết kiệm các tháng sau").
+- *Khả thi*: tổng cần gửi mỗi tháng của các quỹ so với ngân sách *Tiết kiệm/Đầu tư* của tháng: lớn hơn = chưa khả thi, từ 75% = khả thi, dưới 75% = rất khả thi.
+
+### 5.9 `goal_allocations` và view `savings_pool` — chia tiền tiết kiệm vào quỹ
+
+- **Tiền tiết kiệm** = tổng mọi giao dịch nhóm *Tiết kiệm/Đầu tư*. View `savings_pool` trả về `saved` (tổng đó) và `allocated` (tổng đã chia vào quỹ) của người đang đăng nhập; *chưa phân bổ* = `saved − allocated`.
+- Mỗi dòng `goal_allocations` là một lần nạp (số dương) hoặc rút (số âm). Rút ra thì tiền quay về phần chưa phân bổ.
+- Xoá một quỹ (kể cả Quỹ khẩn cấp, sau đó có thể thiết lập lại) thì các dòng của nó bị xoá theo (`on delete cascade`), tiền quay về phần chưa phân bổ. Giao dịch tiết kiệm đã ghi không bị ảnh hưởng.
+
 ## 6. Hàm và trigger
 
 **`set_updated_at()` + 2 trigger** — Trước mỗi lần sửa một dòng ở `transactions` hoặc `budgets`, trigger tự gán `updated_at = now()`. Bạn không cần tự cập nhật cột này.
@@ -274,6 +326,8 @@ Khoá chính `(recurring_id, year, month)`: mỗi mẫu mỗi tháng tối đa *
 Hàm chạy với quyền người gọi (`security invoker`), chỉ người đã đăng nhập mới gọi được và chỉ tác động lên dữ liệu của chính họ.
 
 **`confirm_recurring(mẫu, năm, tháng, số tiền, ngày)`** — Xác nhận khoản định kỳ của một tháng: tạo giao dịch và ghi `recurring_runs` trong **một** lần (thành công cả hoặc thất bại cả). Bấm hai lần hoặc xác nhận từ hai thiết bị thì lần sau bị từ chối, không tạo giao dịch trùng. Tháng đã "bỏ qua" vẫn xác nhận lại được. Cũng chạy với quyền người gọi.
+
+**`allocate_savings(danh sách quỹ + số tiền, ngày, ghi chú)`** — Chia tiền tiết kiệm vào một hoặc nhiều quỹ (hoặc rút ra) trong **một** lần. Từ chối nếu tổng chia vượt số chưa phân bổ, nếu rút quá số đã chia vào quỹ đó, hoặc nếu quỹ đã lưu trữ. Khoá theo tài khoản nên hai lần bấm cùng lúc không thể chia vượt số tiền có. Chạy với quyền người gọi.
 
 ## 7. Bảo mật: mỗi người chỉ thấy dữ liệu của mình
 

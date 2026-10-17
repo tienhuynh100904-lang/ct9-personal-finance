@@ -3,6 +3,7 @@ import 'server-only'
 import { getSession } from './auth'
 import type { BudgetRow } from './finance'
 import { habitWindowStart, lastOfMonth } from './habit'
+import { addMonthsISO, type AllocationRecord, type GoalRecord } from './goals'
 import type { RecurringRecord, RecurringRun } from './recurring'
 import { normalizeRemindAt } from './reminders'
 import { isMissingTable } from './supabase/errors'
@@ -110,6 +111,54 @@ export async function getRecurringData(today: string): Promise<RecurringData | n
     throw new Error(`Không tải được giao dịch định kỳ: ${error.message}`)
   }
   return { rules: rules.data ?? [], runs: runs.data ?? [], today }
+}
+
+export type GoalsData = {
+  goals: GoalRecord[]
+  allocations: AllocationRecord[]
+  /** All "Tiết kiệm/Đầu tư" entries ever logged, and how much of that is already in goals. */
+  pool: { saved: number; allocated: number }
+  /** This month's "Tiết kiệm/Đầu tư" budget: what can go into goals each month (0 = not set). */
+  monthlySaving: number
+  /** Average "Thiết yếu" spending of the last 3 full months, to suggest the emergency fund's monthly cost. */
+  essentialAverage: number | null
+  today: string
+}
+
+/** Everything the goals page needs, or `null` when schema.sql has not been re-run yet. */
+export async function getGoalsData(today: string): Promise<GoalsData | null> {
+  const { supabase } = await getSession()
+  const [year, month] = today.split('-').map(Number)
+  const firstOfMonth = `${today.slice(0, 7)}-01`
+  const threeMonthsAgo = addMonthsISO(firstOfMonth, -3)
+
+  const [goals, allocations, pool, budget, essential] = await Promise.all([
+    supabase
+      .from('goals')
+      .select('id, kind, name, target_amount, monthly_expense, reserve_months, start_date, months, rate_bp, place, initial_amount, note, archived_at')
+      .order('created_at'),
+    supabase.from('goal_allocations').select('id, goal_id, amount, allocated_on, note, created_at').order('allocated_on', { ascending: false }).order('created_at', { ascending: false }),
+    supabase.from('savings_pool').select('saved, allocated').maybeSingle(),
+    supabase.from('budgets').select('amount').eq('year', year).eq('month', month).eq('category', 'saving').maybeSingle(),
+    supabase.from('transactions').select('amount').eq('kind', 'expense').eq('category', 'essential').gte('occurred_on', threeMonthsAgo).lt('occurred_on', firstOfMonth),
+  ])
+  for (const { error } of [goals, allocations, pool]) {
+    if (!error) continue
+    if (isMissingTable(error)) return null
+    throw new Error(`Không tải được mục tiêu: ${error.message}`)
+  }
+  if (budget.error) throw new Error(`Không tải được ngân sách: ${budget.error.message}`)
+  if (essential.error) throw new Error(`Không tải được giao dịch: ${essential.error.message}`)
+
+  const essentialTotal = (essential.data ?? []).reduce((sum, row) => sum + row.amount, 0)
+  return {
+    goals: goals.data ?? [],
+    allocations: allocations.data ?? [],
+    pool: { saved: pool.data?.saved ?? 0, allocated: pool.data?.allocated ?? 0 },
+    monthlySaving: budget.data?.amount ?? 0,
+    essentialAverage: essentialTotal > 0 ? Math.round(essentialTotal / 3 / 1000) * 1000 : null,
+    today,
+  }
 }
 
 /** Years the year pickers offer: every year with data, plus this year and next (for planning). */

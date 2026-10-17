@@ -378,3 +378,144 @@ revoke execute on function public.confirm_recurring(uuid, integer, integer, bigi
 
 grant select, insert, update, delete on public.recurring_transactions, public.recurring_runs to authenticated;
 grant execute on function public.confirm_recurring(uuid, integer, integer, bigint, date) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 11) Mục tiêu tài chính / quỹ (tương ứng file "Theo dõi mục tiêu tài
+--     chính"). `goals`: mỗi quỹ một dòng. Quỹ khẩn cấp (kind = 'emergency')
+--     mỗi tài khoản tối đa 1, mục tiêu = chi phí cố định 1 tháng × số tháng.
+--     `goal_allocations`: tiền tiết kiệm chia vào quỹ (số dương) hoặc rút
+--     ra (số âm). Tiền tiết kiệm = tổng giao dịch "Tiết kiệm/Đầu tư".
+-- ---------------------------------------------------------------------
+create table if not exists public.goals (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind            text not null default 'custom' check (kind in ('emergency', 'custom')),
+  name            text not null check (char_length(btrim(name)) between 1 and 60),
+  target_amount   bigint not null check (target_amount > 0 and target_amount < 1000000000000),
+  monthly_expense bigint check (monthly_expense is null or (monthly_expense > 0 and monthly_expense < 1000000000000)),
+  reserve_months  smallint check (reserve_months is null or reserve_months between 1 and 24),
+  start_date      date not null,
+  months          smallint not null check (months between 1 and 600),
+  rate_bp         smallint not null default 0 check (rate_bp between 0 and 1200),
+  place           text not null default 'bank' check (place in ('bank', 'app', 'mmf')),
+  initial_amount  bigint not null default 0 check (initial_amount >= 0 and initial_amount < 1000000000000),
+  note            text check (note is null or char_length(note) <= 1000),
+  archived_at     timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  constraint goals_emergency_target check (
+    kind <> 'emergency' or (
+      monthly_expense is not null and reserve_months is not null
+      and target_amount = monthly_expense * reserve_months
+    )
+  )
+);
+
+create unique index if not exists goals_one_emergency_per_user on public.goals (user_id) where kind = 'emergency';
+
+create table if not exists public.goal_allocations (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  goal_id      uuid not null references public.goals (id) on delete cascade,
+  amount       bigint not null check (amount <> 0 and abs(amount) < 1000000000000),
+  allocated_on date not null,
+  note         text check (note is null or char_length(note) <= 200),
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists goal_allocations_user_goal_idx on public.goal_allocations (user_id, goal_id, allocated_on);
+
+drop trigger if exists goals_set_updated_at on public.goals;
+create trigger goals_set_updated_at
+  before update on public.goals
+  for each row execute function public.set_updated_at();
+
+alter table public.goals            enable row level security;
+alter table public.goal_allocations enable row level security;
+
+drop policy if exists "Owner full access" on public.goals;
+create policy "Owner full access" on public.goals
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+-- Ghi được chỉ vào quỹ của chính mình.
+drop policy if exists "Owner full access" on public.goal_allocations;
+create policy "Owner full access" on public.goal_allocations
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from public.goals g where g.id = goal_id and g.user_id = (select auth.uid()))
+  );
+
+-- Tổng tiền đã tiết kiệm và tổng đã chia vào quỹ của người đang đăng nhập.
+-- security_invoker: RLS của 2 bảng vẫn áp dụng, nên mỗi người chỉ thấy số của mình.
+create or replace view public.savings_pool with (security_invoker = true) as
+select
+  (select coalesce(sum(t.amount), 0) from public.transactions t
+     where t.kind = 'expense' and t.category = 'saving')::bigint as saved,
+  (select coalesce(sum(a.amount), 0) from public.goal_allocations a)::bigint as allocated;
+
+-- Chia tiền tiết kiệm vào một hoặc nhiều quỹ (số dương) hoặc rút ra (số âm)
+-- trong 1 lần. Từ chối nếu tổng chia vượt số tiền chưa phân bổ, nếu rút quá số
+-- đã chia vào quỹ, hoặc nếu quỹ đã lưu trữ. Khoá theo tài khoản để 2 lần bấm
+-- cùng lúc không vượt quá số tiền có.
+create or replace function public.allocate_savings(p_items jsonb, p_on date, p_note text default null)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_user      uuid := auth.uid();
+  v_available bigint;
+  v_total     bigint := 0;
+  v_item      record;
+begin
+  if v_user is null then
+    raise exception 'not authenticated';
+  end if;
+  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'no_items';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(v_user::text, 0));
+
+  for v_item in
+    select (e->>'goal_id')::uuid as goal_id, sum((e->>'amount')::bigint) as amount
+    from jsonb_array_elements(p_items) e
+    group by 1
+  loop
+    if v_item.amount = 0 then
+      continue;
+    end if;
+    if not exists (
+      select 1 from public.goals g
+      where g.id = v_item.goal_id and g.user_id = v_user and (g.archived_at is null or v_item.amount < 0)
+    ) then
+      raise exception 'goal_not_found';
+    end if;
+    if v_item.amount < 0 and (
+      select coalesce(sum(a.amount), 0) from public.goal_allocations a where a.goal_id = v_item.goal_id
+    ) + v_item.amount < 0 then
+      raise exception 'goal_balance';
+    end if;
+    v_total := v_total + v_item.amount;
+    insert into public.goal_allocations (user_id, goal_id, amount, allocated_on, note)
+    values (v_user, v_item.goal_id, v_item.amount, p_on, nullif(btrim(coalesce(p_note, '')), ''));
+  end loop;
+
+  select p.saved - p.allocated into v_available from public.savings_pool p;
+  if v_total > 0 and v_available < 0 then
+    raise exception 'insufficient_pool';
+  end if;
+end;
+$$;
+
+revoke all on public.goals, public.goal_allocations, public.savings_pool from anon;
+revoke execute on function public.allocate_savings(jsonb, date, text) from public, anon;
+
+grant select, insert, update, delete on public.goals, public.goal_allocations to authenticated;
+grant select on public.savings_pool to authenticated;
+grant execute on function public.allocate_savings(jsonb, date, text) to authenticated;

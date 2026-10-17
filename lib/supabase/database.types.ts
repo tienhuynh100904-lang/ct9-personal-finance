@@ -2,6 +2,7 @@
 // if you change the schema.
 
 import type { BudgetCategory, Category, Kind } from '../finance'
+import type { GoalKind, GoalPlace } from '../goals'
 
 export type Database = {
   __InternalSupabase: {
@@ -252,6 +253,93 @@ export type Database = {
         }
         Relationships: []
       }
+      goals: {
+        Row: {
+          id: string
+          user_id: string
+          kind: GoalKind
+          name: string
+          target_amount: number
+          monthly_expense: number | null
+          reserve_months: number | null
+          start_date: string
+          months: number
+          rate_bp: number
+          place: GoalPlace
+          initial_amount: number
+          note: string | null
+          archived_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          kind?: GoalKind
+          name: string
+          target_amount: number
+          monthly_expense?: number | null
+          reserve_months?: number | null
+          start_date: string
+          months: number
+          rate_bp?: number
+          place?: GoalPlace
+          initial_amount?: number
+          note?: string | null
+          archived_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: GoalKind
+          name?: string
+          target_amount?: number
+          monthly_expense?: number | null
+          reserve_months?: number | null
+          start_date?: string
+          months?: number
+          rate_bp?: number
+          place?: GoalPlace
+          initial_amount?: number
+          note?: string | null
+          archived_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      goal_allocations: {
+        Row: {
+          id: string
+          user_id: string
+          goal_id: string
+          amount: number
+          allocated_on: string
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          goal_id: string
+          amount: number
+          allocated_on: string
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          goal_id?: string
+          amount?: number
+          allocated_on?: string
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       item_usage: {
@@ -262,6 +350,13 @@ export type Database = {
           uses: number
           last_used_on: string
           last_category: Category
+        }
+        Relationships: []
+      }
+      savings_pool: {
+        Row: {
+          saved: number
+          allocated: number
         }
         Relationships: []
       }
@@ -285,6 +380,14 @@ export type Database = {
           p_occurred_on: string
         }
         Returns: string
+      }
+      allocate_savings: {
+        Args: {
+          p_items: { goal_id: string; amount: number }[]
+          p_on: string
+          p_note?: string | null
+        }
+        Returns: undefined
       }
     }
     Enums: { [_ in never]: never }
