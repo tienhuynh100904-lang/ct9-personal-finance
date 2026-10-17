@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { buttonClasses } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { openComposer } from '@/lib/composer'
-import { isActivePath, NAV_ITEMS } from './nav-items'
+import { BOTTOM_NAV_ITEMS, isActivePath, isTabActive, NAV_ITEMS } from './nav-items'
 
 export function SidebarNav() {
   const pathname = usePathname()
@@ -50,29 +50,28 @@ export function AddTransactionButton({ className }: { className?: string }) {
 type NavItem = (typeof NAV_ITEMS)[number]
 
 /**
- * Phone and tablet navigation: five destinations around a raised brand "Ghi" button. The add
- * button is the most-used control in the app, so it sits in the thumb zone. Six slots fit a 360px
- * phone because labels never wrap and drop to 10px below 380px. Hướng dẫn and Cài đặt live in the
- * top bar instead (see `TopBarLinks`).
+ * Phone and tablet navigation: four destinations around a raised brand "Ghi" button, which stays
+ * centered. The add button is the most-used control in the app, so it sits in the thumb zone.
+ * Hướng dẫn and Cài đặt live in the top bar (see `TopBarLinks`); Thu chi is reached from Tổng quan.
  */
 export function BottomNav() {
   const pathname = usePathname()
-  const [first, second, third, fourth, fifth] = NAV_ITEMS
+  const [first, second, third, fourth] = BOTTOM_NAV_ITEMS
 
   const renderLink = ({ href, label, icon: Icon }: NavItem) => {
-    const active = isActivePath(pathname, href)
+    const active = isTabActive(pathname, href)
     return (
       <Link
         key={href}
         href={href}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'group flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] whitespace-nowrap transition-colors max-[380px]:text-[10px] max-[380px]:tracking-tight',
+          'group flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
           active ? 'font-semibold text-brand-ink' : 'text-muted',
         )}
       >
         <span
-          className={cn('grid h-8 w-12 place-items-center rounded-full transition-colors', active && 'bg-brand-soft')}
+          className={cn('grid h-8 w-14 place-items-center rounded-full transition-colors', active && 'bg-brand-soft')}
         >
           <Icon
             className={cn('size-[22px] transition-transform duration-200 group-active:scale-90', active && 'icon-pop')}
@@ -96,7 +95,7 @@ export function BottomNav() {
         <button
           type="button"
           onClick={() => openComposer()}
-          className="group flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-brand-ink"
+          className="group flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-semibold text-brand-ink"
           aria-label="Ghi giao dịch mới"
         >
           <span className="-mt-6 grid size-14 place-items-center rounded-2xl border border-brand-edge bg-brand text-on-brand shadow-[var(--shadow-fab)] ring-4 ring-surface transition-transform motion-safe:active:scale-95">
@@ -106,7 +105,6 @@ export function BottomNav() {
         </button>
         {renderLink(third)}
         {renderLink(fourth)}
-        {renderLink(fifth)}
       </div>
     </nav>
   )

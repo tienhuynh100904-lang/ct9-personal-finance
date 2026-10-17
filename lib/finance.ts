@@ -29,6 +29,11 @@ export type Txn = {
   amount: number
   /** Calendar date, `YYYY-MM-DD`. */
   occurred_on: string
+  /**
+   * "Chi từ quỹ": an expense paid with money taken out of a savings goal. Still spending, but by
+   * default it is left out of the month's surplus, because it was not paid from that month's income.
+   */
+  from_savings?: boolean
 }
 
 export type BudgetRow = {
@@ -94,8 +99,15 @@ export type YearReport = {
   spendingAverage: Record<SpendingCategory, number>
   /** "Tiết kiệm/Đầu tư" */
   saving: Monthly
-  /** "Thặng dư hàng tháng" = thu nhập − chi tiêu − tiết kiệm */
+  /** Spending paid from a savings goal ("Chi từ quỹ"); already included in `spending`. */
+  fundSpending: Monthly
+  /**
+   * "Thặng dư hàng tháng" = thu nhập − chi tiêu − tiết kiệm. Unless `includeFundSpending` is set,
+   * spending paid from a goal is added back: it did not come out of the month's income.
+   */
   surplus: Monthly
+  /** Whether `surplus` counts spending paid from goals. */
+  includesFundSpending: boolean
   /** "Tỷ lệ có thể tiết kiệm" = IFERROR((thu − chi) / thu, 0) */
   potentialSavingRate: Monthly
   /** "Thực tế tiết kiệm" = tiết kiệm / thu. `null` where Excel shows #DIV/0!. */
@@ -105,12 +117,16 @@ export type YearReport = {
     income: number
     spending: number
     saving: number
+    fundSpending: number
     surplus: number
     /** "Thu nhập TB/tháng" = tổng năm / 12 */
     avgIncome: number
     /** "Chi tiêu TB/tháng" = tổng năm / 12 */
     avgSpending: number
-    /** "Tích lũy (tiết kiệm + thặng dư)" */
+    /**
+     * "Tích lũy (tiết kiệm + thặng dư)" = thu nhập − chi tiêu: what the year really added. It is the
+     * same whichever way the surplus treats spending paid from goals.
+     */
     accumulation: number
     /** "Tỷ lệ tích lũy / thu nhập" */
     accumulationRate: number
@@ -122,10 +138,16 @@ export type YearReport = {
   activeMonths: number[]
 }
 
-export function buildYearReport(txns: readonly Txn[], year: number): YearReport {
+export function buildYearReport(
+  txns: readonly Txn[],
+  year: number,
+  options: { includeFundSpending?: boolean } = {},
+): YearReport {
+  const includeFundSpending = options.includeFundSpending ?? false
   const income = byCategory(INCOME_CATEGORIES)
   const spending = byCategory(SPENDING_CATEGORIES)
   const saving = zeros()
+  const fundSpending = zeros()
   const active = new Set<number>()
 
   for (const t of txns) {
@@ -138,12 +160,14 @@ export function buildYearReport(txns: readonly Txn[], year: number): YearReport 
       saving[m] += t.amount
     } else if (t.category in spending) {
       spending[t.category as SpendingCategory][m] += t.amount
+      if (t.from_savings) fundSpending[m] += t.amount
     }
   }
 
   const incomeTotal = addMonthly(...INCOME_CATEGORIES.map((c) => income[c]))
   const spendingTotal = addMonthly(...SPENDING_CATEGORIES.map((c) => spending[c]))
-  const surplus = zeros().map((_, i) => incomeTotal[i] - spendingTotal[i] - saving[i])
+  const fullSurplus = zeros().map((_, i) => incomeTotal[i] - spendingTotal[i] - saving[i])
+  const surplus = includeFundSpending ? fullSurplus : fullSurplus.map((v, i) => v + fundSpending[i])
 
   const incomeShare = byCategory(INCOME_CATEGORIES)
   for (const c of INCOME_CATEGORIES) {
@@ -163,7 +187,7 @@ export function buildYearReport(txns: readonly Txn[], year: number): YearReport 
   const totalSpending = sum(spendingTotal)
   const totalSaving = sum(saving)
   const totalSurplus = sum(surplus)
-  const accumulation = totalSaving + totalSurplus
+  const accumulation = totalSaving + sum(fullSurplus)
 
   const incomeByCategory = {} as Record<IncomeCategory, number>
   for (const c of INCOME_CATEGORIES) incomeByCategory[c] = sum(income[c])
@@ -180,13 +204,16 @@ export function buildYearReport(txns: readonly Txn[], year: number): YearReport 
     spendingShare,
     spendingAverage,
     saving,
+    fundSpending,
     surplus,
+    includesFundSpending: includeFundSpending,
     potentialSavingRate,
     actualSavingRate,
     totals: {
       income: totalIncome,
       spending: totalSpending,
       saving: totalSaving,
+      fundSpending: sum(fundSpending),
       surplus: totalSurplus,
       avgIncome: totalIncome / 12,
       avgSpending: totalSpending / 12,
@@ -364,6 +391,8 @@ export type MonthSnapshot = {
   income: number
   spending: number
   saving: number
+  /** Spending paid from goals this month (part of `spending`). */
+  fundSpending: number
   surplus: number
   potentialSavingRate: number
   actualSavingRate: number | null
@@ -382,6 +411,7 @@ export function monthSnapshot(report: YearReport, plan: BudgetPlan, month: numbe
     income: report.incomeTotal[i],
     spending: report.spendingTotal[i],
     saving: report.saving[i],
+    fundSpending: report.fundSpending[i],
     surplus: report.surplus[i],
     potentialSavingRate: report.potentialSavingRate[i],
     actualSavingRate: report.actualSavingRate[i],

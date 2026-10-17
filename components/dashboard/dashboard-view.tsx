@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { BudgetMeter } from '@/components/ui/meter'
+import { FundSpendingToggle, useIncludeFundSpending } from '@/components/ui/fund-spending-toggle'
 import { StatTile } from '@/components/ui/stat-tile'
 import { CATEGORY_META, MEASURE_COLOR } from '@/lib/categories'
 import { openComposer } from '@/lib/composer'
@@ -65,7 +66,8 @@ export function DashboardView({
   const [monthParam, setMonth] = useMonthParam(defaultMonth)
   const month = monthParam === 'all' ? defaultMonth : monthParam
 
-  const report = useMemo(() => buildYearReport(transactions, year), [transactions, year])
+  const includeFundSpending = useIncludeFundSpending()
+  const report = useMemo(() => buildYearReport(transactions, year, { includeFundSpending }), [transactions, year, includeFundSpending])
   const plan = useMemo(() => buildBudgetPlan(budgetRows), [budgetRows])
   const snapshot = monthSnapshot(report, plan, month)
   const alerts = budgetAlerts(snapshot.spendingByCategory)
@@ -106,6 +108,7 @@ export function DashboardView({
         >
           <p className="hidden sm:block">= Thu nhập − Chi tiêu − Tiết kiệm</p>
           <p>Có thể tiết kiệm: {formatPercent(snapshot.potentialSavingRate)} thu nhập</p>
+          {snapshot.fundSpending > 0 ? <FundSpendingToggle amount={snapshot.fundSpending} include={includeFundSpending} /> : null}
         </StatTile>
       </div>
 

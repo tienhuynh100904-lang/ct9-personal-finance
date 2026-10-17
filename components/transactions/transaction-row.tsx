@@ -38,6 +38,7 @@ export function TransactionRow({
               amount: t.amount,
               occurred_on: t.occurred_on,
               note: t.note,
+              from_savings: t.from_savings,
             },
           })
         }
@@ -58,6 +59,11 @@ export function TransactionRow({
             <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: meta.color }} />
             <span className="min-w-0 truncate">{meta.label}</span>
             {showDate ? <span className="shrink-0">· {formatDate(t.occurred_on)}</span> : null}
+            {t.from_savings ? (
+              <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--c-saving)_14%,var(--surface))] px-1.5 py-px text-[10px] font-semibold text-saving">
+                Chi từ quỹ
+              </span>
+            ) : null}
             {t.note && !showDate ? <span className="hidden min-w-0 truncate sm:inline">· {t.note}</span> : null}
           </span>
         </span>

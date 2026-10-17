@@ -20,6 +20,7 @@ export type Database = {
           amount: number
           occurred_on: string
           note: string | null
+          from_savings: boolean
           created_at: string
           updated_at: string
         }
@@ -32,6 +33,7 @@ export type Database = {
           amount: number
           occurred_on: string
           note?: string | null
+          from_savings?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -319,6 +321,7 @@ export type Database = {
           allocated_on: string
           note: string | null
           created_at: string
+          transaction_id: string | null
         }
         Insert: {
           id?: string
@@ -328,6 +331,7 @@ export type Database = {
           allocated_on: string
           note?: string | null
           created_at?: string
+          transaction_id?: string | null
         }
         Update: {
           id?: string
@@ -357,6 +361,7 @@ export type Database = {
         Row: {
           saved: number
           allocated: number
+          spent: number
         }
         Relationships: []
       }
@@ -388,6 +393,17 @@ export type Database = {
           p_note?: string | null
         }
         Returns: undefined
+      }
+      spend_from_goal: {
+        Args: {
+          p_goal_id: string
+          p_amount: number
+          p_item: string
+          p_category: string
+          p_occurred_on: string
+          p_note?: string | null
+        }
+        Returns: string
       }
     }
     Enums: { [_ in never]: never }

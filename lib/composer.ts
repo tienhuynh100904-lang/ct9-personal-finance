@@ -3,7 +3,7 @@ import type { TransactionRecord } from './types'
 
 export type EditableTransaction = Pick<
   TransactionRecord,
-  'id' | 'kind' | 'item' | 'category' | 'amount' | 'occurred_on' | 'note'
+  'id' | 'kind' | 'item' | 'category' | 'amount' | 'occurred_on' | 'note' | 'from_savings'
 >
 
 /** A one-tap starting point: item, category and (usually) the last amount used. */

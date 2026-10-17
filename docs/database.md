@@ -312,6 +312,9 @@ Tương ứng file Excel *Theo dõi mục tiêu tài chính*: mỗi quỹ một 
 
 - **Tiền tiết kiệm** = tổng mọi giao dịch nhóm *Tiết kiệm/Đầu tư*. View `savings_pool` trả về `saved` (tổng đó) và `allocated` (tổng đã chia vào quỹ) của người đang đăng nhập; *chưa phân bổ* = `saved − allocated`.
 - Mỗi dòng `goal_allocations` là một lần nạp (số dương) hoặc rút (số âm). Rút ra thì tiền quay về phần chưa phân bổ.
+- **Chi từ quỹ** (`spend_from_goal`): tạo một giao dịch chi có `from_savings = true` và một dòng `goal_allocations` số âm có `transaction_id` trỏ tới giao dịch đó, trong một lần. View `savings_pool` có thêm cột `spent` (tổng các khoản chi từ quỹ); *chưa phân bổ* = `saved − spent − allocated`, nên chi từ quỹ không làm đổi phần chưa phân bổ, còn rút thì làm tăng.
+- Xoá giao dịch chi từ quỹ (kể cả "Hoàn tác") thì dòng `goal_allocations` của nó bị xoá theo (`on delete cascade`), tiền về lại quỹ. Sửa số tiền hoặc ngày ở Thu chi thì trigger `sync_goal_spend` cập nhật theo; đổi sang khoản thu hoặc nhóm Tiết kiệm thì giao dịch thôi là chi từ quỹ.
+- Ứng dụng mặc định **không tính** khoản chi từ quỹ vào thặng dư tháng (tiền đã để dành từ trước); người dùng tick "Tính cả chi từ quỹ" để tính. "Tích lũy" luôn = thu nhập − chi tiêu thật.
 - Xoá một quỹ (kể cả Quỹ khẩn cấp, sau đó có thể thiết lập lại) thì các dòng của nó bị xoá theo (`on delete cascade`), tiền quay về phần chưa phân bổ. Giao dịch tiết kiệm đã ghi không bị ảnh hưởng.
 
 ## 6. Hàm và trigger
@@ -327,7 +330,7 @@ Hàm chạy với quyền người gọi (`security invoker`), chỉ người đ
 
 **`confirm_recurring(mẫu, năm, tháng, số tiền, ngày)`** — Xác nhận khoản định kỳ của một tháng: tạo giao dịch và ghi `recurring_runs` trong **một** lần (thành công cả hoặc thất bại cả). Bấm hai lần hoặc xác nhận từ hai thiết bị thì lần sau bị từ chối, không tạo giao dịch trùng. Tháng đã "bỏ qua" vẫn xác nhận lại được. Cũng chạy với quyền người gọi.
 
-**`allocate_savings(danh sách quỹ + số tiền, ngày, ghi chú)`** — Chia tiền tiết kiệm vào một hoặc nhiều quỹ (hoặc rút ra) trong **một** lần. Từ chối nếu tổng chia vượt số chưa phân bổ, nếu rút quá số đã chia vào quỹ đó, hoặc nếu quỹ đã lưu trữ. Khoá theo tài khoản nên hai lần bấm cùng lúc không thể chia vượt số tiền có. Chạy với quyền người gọi.
+**`allocate_savings(danh sách quỹ + số tiền, ngày, ghi chú)`** — Chia tiền tiết kiệm vào một hoặc nhiều quỹ (hoặc rút ra) trong **một** lần. Từ chối nếu tổng chia vượt số chưa phân bổ (`saved − spent − allocated`), nếu rút quá số đã chia vào quỹ đó, hoặc nếu quỹ đã lưu trữ. Khoá theo tài khoản nên hai lần bấm cùng lúc không thể chia vượt số tiền có. Chạy với quyền người gọi.
 
 ## 7. Bảo mật: mỗi người chỉ thấy dữ liệu của mình
 

@@ -3,10 +3,10 @@ import 'server-only'
 import { getSession } from './auth'
 import type { BudgetRow } from './finance'
 import { habitWindowStart, lastOfMonth } from './habit'
-import { addMonthsISO, type AllocationRecord, type GoalRecord } from './goals'
+import { addMonthsISO, type AllocationRecord, type GoalRecord, type SavingsPool } from './goals'
 import type { RecurringRecord, RecurringRun } from './recurring'
 import { normalizeRemindAt } from './reminders'
-import { isMissingTable } from './supabase/errors'
+import { isMissingColumn, isMissingTable } from './supabase/errors'
 import type { HabitData, ItemRecord, ItemUsage, TransactionRecord } from './types'
 
 /** Supabase caps each response (1000 rows by default), so long lists are read page by page. */
@@ -16,8 +16,22 @@ export async function getTransactionsForYear(year: number): Promise<TransactionR
   return readTransactions(`${year}-01-01`, `${year}-12-31`)
 }
 
+const TRANSACTION_COLUMNS = 'id, kind, item, category, amount, occurred_on, note, created_at'
+
 /** Transactions with `occurred_on` in `[from, to]`, newest first. */
 async function readTransactions(from: string, to: string): Promise<TransactionRecord[]> {
+  try {
+    return await readTransactionPages(from, to, `${TRANSACTION_COLUMNS}, from_savings`)
+  } catch (error) {
+    // `from_savings` ("Chi từ quỹ") arrives with a newer schema.sql: until it is run, read without it.
+    if (!(error instanceof MissingColumnError)) throw error
+    return readTransactionPages(from, to, TRANSACTION_COLUMNS)
+  }
+}
+
+class MissingColumnError extends Error {}
+
+async function readTransactionPages(from: string, to: string, columns: string): Promise<TransactionRecord[]> {
   const { supabase } = await getSession()
   const rows: TransactionRecord[] = []
   let total: number | null = null
@@ -25,7 +39,7 @@ async function readTransactions(from: string, to: string): Promise<TransactionRe
   while (total === null || rows.length < total) {
     const { data, error, count } = await supabase
       .from('transactions')
-      .select('id, kind, item, category, amount, occurred_on, note, created_at', {
+      .select(columns, {
         count: total === null ? 'exact' : undefined,
       })
       .gte('occurred_on', from)
@@ -35,10 +49,13 @@ async function readTransactions(from: string, to: string): Promise<TransactionRe
       .order('id')
       .range(rows.length, rows.length + PAGE_SIZE - 1)
 
-    if (error) throw new Error(`Không tải được giao dịch: ${error.message}`)
+    if (error) {
+      if (isMissingColumn(error)) throw new MissingColumnError(error.message)
+      throw new Error(`Không tải được giao dịch: ${error.message}`)
+    }
     if (total === null) total = count ?? data.length
     if (data.length === 0) break
-    rows.push(...data)
+    rows.push(...(data as unknown as TransactionRecord[]))
   }
   return rows
 }
@@ -116,8 +133,8 @@ export async function getRecurringData(today: string): Promise<RecurringData | n
 export type GoalsData = {
   goals: GoalRecord[]
   allocations: AllocationRecord[]
-  /** All "Tiết kiệm/Đầu tư" entries ever logged, and how much of that is already in goals. */
-  pool: { saved: number; allocated: number }
+  /** All "Tiết kiệm/Đầu tư" entries ever logged, what was spent from goals, and what sits in goals. */
+  pool: SavingsPool
   /** This month's "Tiết kiệm/Đầu tư" budget: what can go into goals each month (0 = not set). */
   monthlySaving: number
   /** Average "Thiết yếu" spending of the last 3 full months, to suggest the emergency fund's monthly cost. */
@@ -137,14 +154,19 @@ export async function getGoalsData(today: string): Promise<GoalsData | null> {
       .from('goals')
       .select('id, kind, name, target_amount, monthly_expense, reserve_months, start_date, months, rate_bp, place, initial_amount, note, archived_at')
       .order('created_at'),
-    supabase.from('goal_allocations').select('id, goal_id, amount, allocated_on, note, created_at').order('allocated_on', { ascending: false }).order('created_at', { ascending: false }),
-    supabase.from('savings_pool').select('saved, allocated').maybeSingle(),
+    supabase
+      .from('goal_allocations')
+      .select('id, goal_id, amount, allocated_on, note, created_at, transaction_id')
+      .order('allocated_on', { ascending: false })
+      .order('created_at', { ascending: false }),
+    supabase.from('savings_pool').select('saved, allocated, spent').maybeSingle(),
     supabase.from('budgets').select('amount').eq('year', year).eq('month', month).eq('category', 'saving').maybeSingle(),
     supabase.from('transactions').select('amount').eq('kind', 'expense').eq('category', 'essential').gte('occurred_on', threeMonthsAgo).lt('occurred_on', firstOfMonth),
   ])
   for (const { error } of [goals, allocations, pool]) {
     if (!error) continue
-    if (isMissingTable(error)) return null
+    // A missing table or column means schema.sql (sections 11+) has not been re-run: the page says so.
+    if (isMissingTable(error) || isMissingColumn(error)) return null
     throw new Error(`Không tải được mục tiêu: ${error.message}`)
   }
   if (budget.error) throw new Error(`Không tải được ngân sách: ${budget.error.message}`)
@@ -154,7 +176,7 @@ export async function getGoalsData(today: string): Promise<GoalsData | null> {
   return {
     goals: goals.data ?? [],
     allocations: allocations.data ?? [],
-    pool: { saved: pool.data?.saved ?? 0, allocated: pool.data?.allocated ?? 0 },
+    pool: { saved: pool.data?.saved ?? 0, spent: pool.data?.spent ?? 0, allocated: pool.data?.allocated ?? 0 },
     monthlySaving: budget.data?.amount ?? 0,
     essentialAverage: essentialTotal > 0 ? Math.round(essentialTotal / 3 / 1000) * 1000 : null,
     today,

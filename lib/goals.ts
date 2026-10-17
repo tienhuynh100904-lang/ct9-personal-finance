@@ -46,7 +46,10 @@ export type GoalRecord = {
   archived_at: string | null
 }
 
-/** Money moved from the savings pool into a goal (positive) or back out (negative). */
+/**
+ * Money moved from the savings pool into a goal (positive) or back out (negative). A row with a
+ * `transaction_id` is "Chi từ quỹ": money spent straight from the goal, recorded as that expense.
+ */
 export type AllocationRecord = {
   id: string
   goal_id: string
@@ -54,6 +57,7 @@ export type AllocationRecord = {
   allocated_on: string
   note: string | null
   created_at: string
+  transaction_id: string | null
 }
 
 // ---- Dates ----------------------------------------------------------------------------
@@ -201,8 +205,10 @@ export type GoalProgress = {
   goal: GoalRecord
   target: number
   deadline: string
-  /** Allocations minus withdrawals (excludes the existing amount and interest). */
+  /** Allocations minus withdrawals and spending (excludes the existing amount and interest). */
   allocated: number
+  /** Total spent straight from this goal ("Chi từ quỹ"). */
+  spent: number
   accrual: Accrual
   withdrawable: number
   /** 0–1. */
@@ -247,6 +253,7 @@ export function goalProgress(goal: GoalRecord, allocations: readonly AllocationR
     target,
     deadline,
     allocated: own.reduce((sum, a) => sum + a.amount, 0),
+    spent: own.reduce((sum, a) => sum + (a.transaction_id ? -a.amount : 0), 0),
     accrual,
     withdrawable: withdrawable(accrual, goal.place),
     progress,
@@ -271,7 +278,19 @@ export function feasibility(requiredMonthly: number, availableMonthly: number | 
   return requiredMonthly >= availableMonthly * 0.75 ? 'feasible' : 'very_feasible'
 }
 
-/** Money saved (all "Tiết kiệm/Đầu tư" entries) that is not yet in any goal. */
-export function unallocated(pool: { saved: number; allocated: number }): number {
-  return pool.saved - pool.allocated
+export type SavingsPool = {
+  /** All "Tiết kiệm/Đầu tư" entries ever logged. */
+  saved: number
+  /** Spending paid from goals ("Chi từ quỹ"): that money has left savings for good. */
+  spent: number
+  /** Net amount sitting in goals (allocations − withdrawals − spending). */
+  allocated: number
+}
+
+/**
+ * Money saved that is not in any goal. Spending from a goal lowers both `spent`'s complement and
+ * the goal, so it never changes this number; a withdrawal raises it.
+ */
+export function unallocated(pool: SavingsPool): number {
+  return pool.saved - pool.spent - pool.allocated
 }

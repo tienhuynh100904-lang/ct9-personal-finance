@@ -321,6 +321,7 @@ export function TodayCard({ habit }: { habit: HabitData }) {
               amount: t.amount,
               occurred_on: t.occurred_on,
               note: t.note,
+              from_savings: t.from_savings,
             },
           })
         }

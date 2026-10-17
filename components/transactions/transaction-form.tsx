@@ -250,6 +250,12 @@ export function TransactionForm({
       noValidate
     >
       <DialogBody className="space-y-4">
+        {initial?.from_savings ? (
+          <p className="rounded-xl bg-[color-mix(in_oklab,var(--c-saving)_10%,var(--surface))] px-3 py-2.5 text-xs leading-relaxed text-ink-2">
+            <strong className="font-semibold text-ink">Khoản chi từ quỹ.</strong> Sửa số tiền hoặc ngày thì quỹ được cập nhật theo. Xoá giao dịch này thì
+            tiền về lại quỹ. Đổi sang khoản thu hoặc nhóm Tiết kiệm thì nó thôi là chi từ quỹ.
+          </p>
+        ) : null}
         <Segmented
           label="Loại giao dịch"
           value={kind}

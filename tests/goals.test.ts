@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   accrue,
+  unallocated,
   emergencyTarget,
   feasibility,
   goalProgress,
@@ -93,7 +94,7 @@ const goal = (patch: Partial<GoalRecord> = {}): GoalRecord => ({
 })
 
 test('a goal\'s progress, pace and milestones', () => {
-  const allocations = EXAMPLE_DEPOSITS.map((d, i) => ({ id: `a${i}`, goal_id: 'g1', amount: d.amount, allocated_on: d.date, note: null, created_at: '' }))
+  const allocations = EXAMPLE_DEPOSITS.map((d, i) => ({ id: `a${i}`, goal_id: 'g1', amount: d.amount, allocated_on: d.date, note: null, created_at: '', transaction_id: null }))
   const p = goalProgress(goal(), allocations, '2026-08-01')
   assert.equal(p.deadline, '2027-03-01')
   assert.equal(p.allocated, 2_832_000)
@@ -120,4 +121,25 @@ test('emergency target and the plan\'s feasibility', () => {
   assert.equal(feasibility(3_500_000, 4_000_000), 'feasible')
   assert.equal(feasibility(1_000_000, 4_000_000), 'very_feasible')
   assert.equal(feasibility(1_000_000, 0), 'unknown')
+})
+
+test('spending from a goal leaves the unallocated pool alone; a withdrawal fills it', () => {
+  // Saved 35 triệu, put 10 into the trip fund.
+  assert.equal(unallocated({ saved: 35_000_000, spent: 0, allocated: 10_000_000 }), 25_000_000)
+  // Spend 6 triệu straight from the fund: the fund drops to 4, the pool stays at 25.
+  assert.equal(unallocated({ saved: 35_000_000, spent: 6_000_000, allocated: 4_000_000 }), 25_000_000)
+  // Withdraw the remaining 4 instead: it comes back to the pool.
+  assert.equal(unallocated({ saved: 35_000_000, spent: 6_000_000, allocated: 0 }), 29_000_000)
+})
+
+test('a goal tells allocations, withdrawals and spending apart', () => {
+  const rows = [
+    { id: 'a', goal_id: 'g1', amount: 10_000_000, allocated_on: '2026-04-01', note: null, created_at: '', transaction_id: null },
+    { id: 'b', goal_id: 'g1', amount: -1_000_000, allocated_on: '2026-05-01', note: null, created_at: '', transaction_id: null },
+    { id: 'c', goal_id: 'g1', amount: -6_000_000, allocated_on: '2026-06-01', note: null, created_at: '', transaction_id: 't1' },
+  ]
+  const p = goalProgress(goal({ rate_bp: 0 }), rows, '2026-07-01')
+  assert.equal(p.allocated, 3_000_000)
+  assert.equal(p.spent, 6_000_000)
+  assert.equal(p.accrual.balance, 3_000_000)
 })

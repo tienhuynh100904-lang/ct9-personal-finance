@@ -13,7 +13,7 @@ import { openComposer } from '@/lib/composer'
 import type { GoalsData } from '@/lib/data'
 import { formatDate, formatPercent, formatVND } from '@/lib/format'
 import { runAction } from '@/lib/run-action'
-import { toast } from '@/lib/toast'
+import { afterDialogClose, toast } from '@/lib/toast'
 import {
   EMERGENCY_BENCHMARKS,
   feasibility,
@@ -25,7 +25,7 @@ import {
   type GoalProgress,
   type GoalRecord,
 } from '@/lib/goals'
-import { AllocateDialog, GoalDetailDialog, GoalFormDialog, WithdrawDialog } from './goal-dialogs'
+import { AllocateDialog, GoalDetailDialog, GoalFormDialog, TakeOutDialog } from './goal-dialogs'
 
 const IDEAS = ['Đi du lịch', 'Mua xe', 'Học phí', 'Mua nhà', 'Đám cưới', 'Nghỉ hưu']
 
@@ -86,12 +86,16 @@ export function GoalsView({ data }: { data: GoalsData }) {
     if (!target || deletePending) return
     startDelete(async () => {
       const result = await runAction(() => deleteGoal(target.goal.id))
-      setDeleting(null)
+      // On a failure the confirmation stays open and the error is shown inside it; closing first
+      // would take the toast down with the dialog.
       if (!result) return
       if (!result.ok) return void toast.error(result.error)
-      toast.success(`Đã xoá “${target.goal.name}”`, {
-        description: target.allocated > 0 ? `${formatVND(target.allocated)} đã quay về tiền chưa phân bổ.` : undefined,
-      })
+      setDeleting(null)
+      afterDialogClose(() =>
+        toast.success(`Đã xoá “${target.goal.name}”`, {
+          description: target.allocated > 0 ? `${formatVND(target.allocated)} đã quay về tiền chưa phân bổ.` : undefined,
+        }),
+      )
     })
   }
 
@@ -114,7 +118,8 @@ export function GoalsView({ data }: { data: GoalsData }) {
             {formatVND(available)}
           </p>
           <p className="mt-2 text-sm text-ink-2">
-            Đã tiết kiệm {formatVND(pool.saved)} · đã chia vào quỹ {formatVND(pool.allocated)}
+            Đã tiết kiệm {formatVND(pool.saved)} · đang trong quỹ {formatVND(pool.allocated)}
+            {pool.spent > 0 ? ` · đã chi từ quỹ ${formatVND(pool.spent)}` : ''}
           </p>
           {available < 0 ? (
             <p className="mt-1 flex items-start gap-1.5 text-xs text-negative">
@@ -258,7 +263,7 @@ export function GoalsView({ data }: { data: GoalsData }) {
         otherMonthly={otherMonthly}
       />
       <AllocateDialog open={allocateFor !== undefined} onClose={() => setAllocateFor(undefined)} progresses={active} available={available} focusGoalId={allocateFor ?? null} />
-      <WithdrawDialog progress={withdrawFrom} onClose={() => setWithdrawFrom(null)} />
+      <TakeOutDialog progress={withdrawFrom} onClose={() => setWithdrawFrom(null)} />
       <GoalDetailDialog
         progress={detail}
         allocations={allocations}
@@ -421,21 +426,21 @@ function GoalCard({
         </p>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-1.5">
+      <div className="mt-4 flex flex-wrap items-center gap-1">
         {!done ? (
           <Button size="sm" onClick={onAllocate} disabled={!canAllocate} title={canAllocate ? undefined : 'Chưa có tiền tiết kiệm chưa phân bổ'}>
             <ArrowDownToLine className="size-3.5" aria-hidden />
             Nạp tiền
           </Button>
         ) : null}
-        {progress.allocated > 0 ? (
-          <Button size="sm" variant="ghost" onClick={onWithdraw}>
-            <ArrowUpFromLine className="size-3.5" aria-hidden />
-            Rút
+        {progress.accrual.balance >= 1 ? (
+          <Button size="sm" variant="ghost" onClick={onWithdraw} aria-label={`Rút hoặc chi tiền từ ${progress.goal.name}`}>
+            <ArrowUpFromLine className="size-3.5 max-[380px]:hidden" aria-hidden />
+            Rút / Chi
           </Button>
         ) : null}
         <Button size="sm" variant="ghost" onClick={onDetail} className="ml-auto" aria-label={`Chi tiết ${progress.goal.name}`}>
-          <span className="max-[380px]:sr-only">Chi tiết</span>
+          <span className="max-sm:sr-only">Chi tiết</span>
           <ChevronRight className="size-3.5" aria-hidden />
         </Button>
         <DeleteButton name={progress.goal.name} onClick={onDelete} />
@@ -538,21 +543,21 @@ function EmergencyCard({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-line px-4 py-3 sm:px-5">
+      <div className="flex flex-wrap items-center gap-1 border-t border-line px-4 py-3 sm:px-5">
         {!done ? (
           <Button size="sm" onClick={onAllocate} disabled={!canAllocate}>
             <ArrowDownToLine className="size-3.5" aria-hidden />
             Nạp tiền
           </Button>
         ) : null}
-        {progress.allocated > 0 ? (
-          <Button size="sm" variant="ghost" onClick={onWithdraw}>
-            <ArrowUpFromLine className="size-3.5" aria-hidden />
-            Rút
+        {progress.accrual.balance >= 1 ? (
+          <Button size="sm" variant="ghost" onClick={onWithdraw} aria-label={`Rút hoặc chi tiền từ ${progress.goal.name}`}>
+            <ArrowUpFromLine className="size-3.5 max-[380px]:hidden" aria-hidden />
+            Rút / Chi
           </Button>
         ) : null}
         <Button size="sm" variant="ghost" onClick={onDetail} className="ml-auto" aria-label={`Chi tiết ${progress.goal.name}`}>
-          <span className="max-[380px]:sr-only">Chi tiết</span>
+          <span className="max-sm:sr-only">Chi tiết</span>
           <ChevronRight className="size-3.5" aria-hidden />
         </Button>
         <DeleteButton name={progress.goal.name} onClick={onDelete} />

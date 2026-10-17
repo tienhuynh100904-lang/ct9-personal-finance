@@ -112,3 +112,24 @@ describe('budget (sheet "Lập ngân sách")', () => {
     assert.equal(budgetStatus(10, 0).status, 'unplanned')
   })
 })
+
+test('spending paid from a goal is left out of the surplus unless asked for', () => {
+  const txns = [
+    { kind: 'income' as const, item: 'Lương', category: 'main' as const, amount: 10_000_000, occurred_on: '2026-03-05' },
+    { kind: 'expense' as const, item: 'Ăn uống', category: 'essential' as const, amount: 3_000_000, occurred_on: '2026-03-10' },
+    { kind: 'expense' as const, item: 'Gửi tiết kiệm', category: 'saving' as const, amount: 2_000_000, occurred_on: '2026-03-11' },
+    { kind: 'expense' as const, item: 'Vé máy bay', category: 'non_essential' as const, amount: 6_000_000, occurred_on: '2026-03-20', from_savings: true },
+  ]
+  const excluded = buildYearReport(txns, 2026)
+  const included = buildYearReport(txns, 2026, { includeFundSpending: true })
+  // The trip is real spending either way…
+  assert.equal(excluded.spendingTotal[2], 9_000_000)
+  assert.equal(excluded.fundSpending[2], 6_000_000)
+  // …but by default it does not eat the month's surplus: it was paid with money saved earlier.
+  assert.equal(excluded.surplus[2], 10_000_000 - 3_000_000 - 2_000_000)
+  assert.equal(included.surplus[2], 10_000_000 - 9_000_000 - 2_000_000)
+  assert.equal(excluded.includesFundSpending, false)
+  // What the year really added (income − spending) does not depend on the choice.
+  assert.equal(excluded.totals.accumulation, 1_000_000)
+  assert.equal(included.totals.accumulation, 1_000_000)
+})

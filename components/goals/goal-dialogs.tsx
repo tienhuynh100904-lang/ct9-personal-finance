@@ -4,13 +4,18 @@ import { Archive, ArchiveRestore, Check, CircleCheck, Info, LoaderCircle, Pencil
 import { useState, useTransition } from 'react'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
-import { ChoiceChips } from '@/components/ui/choice'
+import { ChoiceChips, Segmented } from '@/components/ui/choice'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Dialog, DialogBody, DialogFooter } from '@/components/ui/dialog'
 import { Field, Input, Textarea } from '@/components/ui/field'
-import { allocateSavings, deleteAllocation, saveGoal, setGoalArchived } from '@/lib/actions/goals'
+import { markNoSpend } from '@/lib/actions/day-marks'
+import { allocateSavings, deleteAllocation, saveGoal, setGoalArchived, spendFromGoal } from '@/lib/actions/goals'
+import { deleteTransaction } from '@/lib/actions/transactions'
+import { showBudgetAlert } from '@/lib/budget-alert-toast'
+import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import { todayISO } from '@/lib/dates'
+import type { SpendingCategory } from '@/lib/finance'
 import { formatDate, formatPercent, formatSignedVND, formatVND } from '@/lib/format'
 import {
   addMonthsISO,
@@ -26,7 +31,7 @@ import {
   type GoalRecord,
 } from '@/lib/goals'
 import { runAction } from '@/lib/run-action'
-import { toast } from '@/lib/toast'
+import { afterDialogClose, toast } from '@/lib/toast'
 import type { FieldErrors, GoalInput } from '@/lib/validation'
 
 const MONTH_CHOICES = ['6', '12', '24', '36', '60']
@@ -155,8 +160,10 @@ function GoalForm({
         toast.error(result.error)
         return
       }
-      toast.success(goal ? 'Đã lưu quỹ' : 'Đã tạo quỹ', { description: `“${name.trim()}” · mục tiêu ${formatVND(effectiveTarget)}` })
       onDone()
+      afterDialogClose(() =>
+        toast.success(goal ? 'Đã lưu quỹ' : 'Đã tạo quỹ', { description: `“${name.trim()}” · mục tiêu ${formatVND(effectiveTarget)}` }),
+      )
     })
   }
 
@@ -382,8 +389,8 @@ function AllocateForm({
       if (!result) return
       if (!result.ok) return void toast.error(result.error)
       const names = items.map((i) => progresses.find((p) => p.goal.id === i.goalId)?.goal.name).filter(Boolean)
-      toast.success(`Đã phân bổ ${formatVND(total)}`, { description: names.join(', ') })
       onDone()
+      afterDialogClose(() => toast.success(`Đã phân bổ ${formatVND(total)}`, { description: names.join(', ') }))
     })
   }
 
@@ -455,72 +462,169 @@ function AllocateForm({
   )
 }
 
-// ---- Withdraw -------------------------------------------------------------------------
+// ---- Take money out: withdraw back to the pool, or spend it -----------------------------
 
-export function WithdrawDialog({ progress, onClose }: { progress: GoalProgress | null; onClose: () => void }) {
+export type TakeOutMode = 'withdraw' | 'spend'
+
+const SPEND_CATEGORIES: SpendingCategory[] = ['essential', 'non_essential', 'incidental']
+
+export function TakeOutDialog({
+  progress,
+  initialMode = 'spend',
+  onClose,
+}: {
+  progress: GoalProgress | null
+  initialMode?: TakeOutMode
+  onClose: () => void
+}) {
   return (
-    <Dialog
-      open={progress !== null}
-      onClose={onClose}
-      title={progress ? `Rút khỏi ${progress.goal.name}` : 'Rút tiền'}
-      description="Tiền rút ra quay về phần tiết kiệm chưa phân bổ, có thể chia sang quỹ khác."
-    >
-      {progress ? <WithdrawForm key={progress.goal.id} progress={progress} onDone={onClose} /> : null}
+    <Dialog open={progress !== null} onClose={onClose} title={progress ? `Lấy tiền từ ${progress.goal.name}` : 'Lấy tiền từ quỹ'}>
+      {progress ? <TakeOutForm key={progress.goal.id} progress={progress} initialMode={initialMode} onDone={onClose} /> : null}
     </Dialog>
   )
 }
 
-function WithdrawForm({ progress, onDone }: { progress: GoalProgress; onDone: () => void }) {
-  const max = Math.max(0, progress.allocated)
+function TakeOutForm({ progress, initialMode, onDone }: { progress: GoalProgress; initialMode: TakeOutMode; onDone: () => void }) {
+  const { goal } = progress
+  const withdrawMax = Math.max(0, progress.allocated)
+  const spendMax = Math.max(0, Math.floor(progress.accrual.balance))
+  const [mode, setMode] = useState<TakeOutMode>(withdrawMax > 0 ? initialMode : 'spend')
   const [amount, setAmount] = useState(0)
+  const [item, setItem] = useState(goal.kind === 'emergency' ? '' : goal.name)
+  const [category, setCategory] = useState<SpendingCategory>(goal.kind === 'emergency' ? 'incidental' : 'non_essential')
   const [date, setDate] = useState(todayISO())
   const [note, setNote] = useState('')
   const [pending, startTransition] = useTransition()
+
+  const max = mode === 'withdraw' ? withdrawMax : spendMax
   const tooMuch = amount > max
+  const canSubmit = amount > 0 && !tooMuch && (mode === 'withdraw' || item.trim() !== '')
 
   function submit() {
+    if (!canSubmit) return
     startTransition(async () => {
-      const result = await runAction(() => allocateSavings({ items: [{ goalId: progress.goal.id, amount: -amount }], date, note }))
+      if (mode === 'withdraw') {
+        const result = await runAction(() => allocateSavings({ items: [{ goalId: goal.id, amount: -amount }], date, note }))
+        if (!result) return
+        if (!result.ok) return void toast.error(result.error)
+        onDone()
+        afterDialogClose(() =>
+          toast.success(`Đã rút ${formatVND(amount)}`, { description: `Từ “${goal.name}” về tiền tiết kiệm chưa phân bổ.` }),
+        )
+        return
+      }
+      const result = await runAction(() => spendFromGoal({ goalId: goal.id, amount, item, category, date, note }))
       if (!result) return
       if (!result.ok) return void toast.error(result.error)
-      toast.success(`Đã rút ${formatVND(amount)}`, { description: `Từ “${progress.goal.name}” về tiền chưa phân bổ.` })
+      const transactionId = result.transactionId
       onDone()
+      afterDialogClose(() => {
+        toast.success(`Đã chi ${formatVND(amount)} từ “${goal.name}”`, {
+          description: `Đã ghi “${item.trim()}” vào Thu chi, đánh dấu chi từ quỹ.`,
+          action: transactionId
+            ? {
+                label: 'Hoàn tác',
+                onClick: () => {
+                  void (async () => {
+                    const undo = await runAction(() => deleteTransaction(transactionId))
+                    if (!undo) return
+                    if (!undo.ok) return toast.error(undo.error)
+                    if (result.clearedMark) await runAction(() => markNoSpend(date))
+                    toast.success('Đã hoàn tác', { description: `${formatVND(amount)} đã về lại “${goal.name}”.` })
+                  })()
+                },
+              }
+            : undefined,
+        })
+        if (result.budgetAlert) showBudgetAlert(result.budgetAlert, date)
+      })
     })
   }
 
   return (
     <form
       className="flex min-h-0 flex-1 flex-col"
+      noValidate
       onSubmit={(e) => {
         e.preventDefault()
         submit()
       }}
     >
       <DialogBody className="space-y-4">
-        <Field
-          label="Số tiền rút"
-          htmlFor="withdraw-amount"
-          error={tooMuch ? `Tối đa ${formatVND(max)} (số đã phân bổ vào quỹ).` : undefined}
-          hint={`Đã phân bổ vào quỹ: ${formatVND(max)}. Tiền đã có sẵn và tiền lãi không rút ở đây.`}
-        >
-          <AmountInput id="withdraw-amount" value={amount} onValueChange={setAmount} data-autofocus="" aria-invalid={tooMuch} />
-        </Field>
-        {max > 0 && amount !== max ? (
-          <button type="button" onClick={() => setAmount(max)} className="-mt-2 text-xs font-medium text-brand-ink hover:underline">
-            Rút hết {formatVND(max)}
-          </button>
-        ) : null}
-        <Field label="Ngày" htmlFor="withdraw-date">
-          <DatePicker id="withdraw-date" label="Ngày rút" value={date} onChange={setDate} max={todayISO()} />
-        </Field>
-        <Field label="Ghi chú" htmlFor="withdraw-note">
-          <Input id="withdraw-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Không bắt buộc" />
-        </Field>
+        <Segmented
+          label="Cách lấy tiền"
+          value={mode}
+          onChange={(next) => {
+            setMode(next)
+            setAmount(0)
+          }}
+          options={[
+            { value: 'spend', label: 'Chi tiêu từ quỹ' },
+            { value: 'withdraw', label: 'Rút về tiết kiệm' },
+          ]}
+        />
+        <p className="-mt-2 rounded-xl bg-surface-2 px-3 py-2.5 text-xs leading-relaxed text-ink-2">
+          {mode === 'spend' ? (
+            <>
+              Dùng khi bạn <strong className="font-semibold text-ink">tiêu tiền của quỹ</strong> (đi du lịch, sửa xe…). App ghi một khoản chi vào Thu chi,
+              trừ vào quỹ, và tiền đó rời hẳn khỏi tiền tiết kiệm. Mặc định khoản này không bị tính vào thặng dư của tháng.
+            </>
+          ) : (
+            <>
+              Dùng khi bạn <strong className="font-semibold text-ink">đổi kế hoạch</strong>, muốn chuyển tiền sang quỹ khác. Tiền quay về phần tiết kiệm chưa
+              phân bổ, không tạo giao dịch thu chi nào.
+            </>
+          )}
+        </p>
+
+        {mode === 'withdraw' && withdrawMax <= 0 ? (
+          <p className="text-sm text-muted">Quỹ này chưa có tiền phân bổ để rút. Tiền có sẵn từ đầu và tiền lãi chỉ dùng được bằng cách chi từ quỹ.</p>
+        ) : (
+          <>
+            <Field
+              label={mode === 'spend' ? 'Số tiền đã chi' : 'Số tiền rút'}
+              htmlFor="takeout-amount"
+              error={tooMuch ? `Tối đa ${formatVND(max)}.` : undefined}
+              hint={mode === 'spend' ? `Quỹ hiện có ${formatVND(spendMax)}.` : `Đã phân bổ vào quỹ: ${formatVND(withdrawMax)}.`}
+            >
+              <AmountInput id="takeout-amount" value={amount} onValueChange={setAmount} data-autofocus="" aria-invalid={tooMuch} />
+            </Field>
+            {max > 0 && amount !== max ? (
+              <button type="button" onClick={() => setAmount(max)} className="-mt-2 text-xs font-medium text-brand-ink hover:underline">
+                {mode === 'spend' ? 'Dùng hết' : 'Rút hết'} {formatVND(max)}
+              </button>
+            ) : null}
+
+            {mode === 'spend' ? (
+              <>
+                <Field label="Khoản mục" htmlFor="takeout-item">
+                  <Input id="takeout-item" value={item} onChange={(e) => setItem(e.target.value)} maxLength={100} placeholder="VD: Vé máy bay, Sửa xe…" />
+                </Field>
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-ink-2">Phân loại</p>
+                  <ChoiceChips
+                    label="Phân loại"
+                    value={category}
+                    onChange={setCategory}
+                    options={SPEND_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_META[c].label, dot: CATEGORY_META[c].color }))}
+                  />
+                </div>
+              </>
+            ) : null}
+
+            <Field label="Ngày" htmlFor="takeout-date">
+              <DatePicker id="takeout-date" label={mode === 'spend' ? 'Ngày chi' : 'Ngày rút'} value={date} onChange={setDate} max={todayISO()} />
+            </Field>
+            <Field label="Ghi chú" htmlFor="takeout-note">
+              <Input id="takeout-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Không bắt buộc" />
+            </Field>
+          </>
+        )}
       </DialogBody>
       <DialogFooter>
-        <Button type="submit" size="lg" variant="secondary" className="w-full" disabled={pending || amount <= 0 || tooMuch}>
+        <Button type="submit" size="lg" variant={mode === 'spend' ? 'primary' : 'secondary'} className="w-full" disabled={pending || !canSubmit}>
           {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : null}
-          {amount > 0 ? `Rút ${formatVND(amount)}` : 'Nhập số tiền rút'}
+          {amount > 0 ? (mode === 'spend' ? `Ghi chi ${formatVND(amount)}` : `Rút ${formatVND(amount)}`) : 'Nhập số tiền'}
         </Button>
       </DialogFooter>
     </form>
@@ -581,8 +685,12 @@ function GoalDetail({
       const result = await action()
       if (!result) return
       if (!result.ok) return void toast.error(result.error ?? 'Không thực hiện được.')
-      toast.success(success)
-      if (close) onClose()
+      if (close) {
+        onClose()
+        afterDialogClose(() => toast.success(success))
+      } else {
+        toast.success(success)
+      }
     })
   }
 
@@ -593,7 +701,8 @@ function GoalDetail({
           {[
             ['Hiện có', formatVND(progress.accrual.balance)],
             ['Mục tiêu', formatVND(progress.target)],
-            ['Đã phân bổ', formatVND(progress.allocated)],
+            ['Đã phân bổ (còn lại)', formatVND(progress.allocated)],
+            ['Đã chi từ quỹ', formatVND(progress.spent)],
             ['Có sẵn từ đầu', formatVND(goal.initial_amount)],
             ['Lãi tới nay', `+${formatVND(progress.accrual.interest)}`],
             ['Rút ra thực tế ≈', formatVND(progress.withdrawable)],
@@ -638,7 +747,7 @@ function GoalDetail({
 
         <section aria-labelledby="history-title">
           <h3 id="history-title" className="text-sm font-semibold">
-            Lịch sử phân bổ
+            Lịch sử nạp, rút và chi
           </h3>
           {allocations.length === 0 ? (
             <p className="mt-1 text-sm text-muted">Chưa có lần phân bổ nào.</p>
@@ -647,12 +756,20 @@ function GoalDetail({
               {allocations.map((a) => (
                 <li key={a.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
                   <div className="min-w-0 flex-1">
-                    <p className={cn('font-medium tabular-nums', a.amount < 0 ? 'text-ink' : 'text-positive')}>{formatSignedVND(a.amount)}</p>
+                    <p className={cn('flex items-center gap-1.5 font-medium tabular-nums', a.amount < 0 ? 'text-ink' : 'text-positive')}>
+                      {formatSignedVND(a.amount)}
+                      <span className="rounded-full bg-surface-2 px-1.5 py-px text-[10px] font-semibold text-muted">
+                        {a.transaction_id ? 'Chi từ quỹ' : a.amount < 0 ? 'Rút' : 'Nạp'}
+                      </span>
+                    </p>
                     <p className="truncate text-xs text-muted">
                       {formatDate(a.allocated_on)}
                       {a.note ? ` · ${a.note}` : ''}
                     </p>
                   </div>
+                  {a.transaction_id ? (
+                    <span className="max-w-28 shrink-0 text-right text-[11px] leading-tight text-muted">Sửa/xoá ở trang Thu chi</span>
+                  ) : (
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -662,6 +779,7 @@ function GoalDetail({
                   >
                     <Trash2 className="icon-hover-wiggle size-4" aria-hidden />
                   </Button>
+                  )}
                 </li>
               ))}
             </ul>

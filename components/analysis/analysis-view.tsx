@@ -12,6 +12,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Segmented } from '@/components/ui/choice'
 import { Select } from '@/components/ui/select'
+import { FundSpendingToggle, useIncludeFundSpending } from '@/components/ui/fund-spending-toggle'
 import { StatTile } from '@/components/ui/stat-tile'
 import { CATEGORY_META, MEASURE_COLOR } from '@/lib/categories'
 import {
@@ -55,7 +56,8 @@ export function AnalysisView({
   highlightMonth?: number
   transactions: TransactionRecord[]
 }) {
-  const report = useMemo(() => buildYearReport(transactions, year), [transactions, year])
+  const includeFundSpending = useIncludeFundSpending()
+  const report = useMemo(() => buildYearReport(transactions, year, { includeFundSpending }), [transactions, year, includeFundSpending])
   const [includeSaving, setIncludeSaving] = useState(false)
   const [showAllItems, setShowAllItems] = useState(false)
   const topItems = useMemo(
@@ -175,7 +177,9 @@ export function AnalysisView({
             label="Thặng dư năm"
             value={t.surplus < 0 ? formatSignedVND(t.surplus) : formatVND(t.surplus)}
             tone={t.surplus < 0 ? 'negative' : 'default'}
-          />
+          >
+            {t.fundSpending > 0 ? <FundSpendingToggle amount={t.fundSpending} include={includeFundSpending} /> : null}
+          </StatTile>
           <StatTile size="sm" label="Thu nhập TB/tháng" value={formatVND(t.avgIncome)}>
             <p>Tổng năm ÷ 12 tháng</p>
           </StatTile>
@@ -183,7 +187,7 @@ export function AnalysisView({
             <p>Tổng năm ÷ 12 tháng</p>
           </StatTile>
           <StatTile size="sm" label="Tích lũy" value={formatVND(t.accumulation)}>
-            <p>Tiết kiệm + thặng dư</p>
+            <p>= Thu nhập − Chi tiêu của cả năm</p>
           </StatTile>
           <StatTile size="sm" label="Tỷ lệ tích lũy / thu nhập" value={formatPercent(t.accumulationRate)} />
         </div>

@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  ArrowUpFromLine,
   BellRing,
   BookOpen,
   CalendarCheck,
@@ -9,6 +10,7 @@ import {
   Leaf,
   type LucideIcon,
   PenLine,
+  Receipt,
   Plus,
   Repeat,
   Settings,
@@ -42,6 +44,7 @@ const TOC: { id: string; label: string }[] = [
   { id: 'ngan-sach', label: 'Ngân sách' },
   { id: 'canh-bao', label: 'Cảnh báo' },
   { id: 'muc-tieu', label: 'Mục tiêu' },
+  { id: 'rut-chi', label: 'Rút hay chi quỹ' },
   { id: 'thu-chi', label: 'Sổ thu chi' },
   { id: 'phan-tich', label: 'Phân tích' },
   { id: 'phan-loai', label: 'Phân loại' },
@@ -247,7 +250,8 @@ export default function GuidePage() {
               (tối đa 12%/năm). App tính ngay mỗi tháng cần tiết kiệm bao nhiêu.
             </>,
             <>
-              Bấm <strong>Phân bổ vào quỹ</strong> để chia tiền vào một hoặc nhiều quỹ cùng lúc. <strong>Rút</strong> để đưa tiền về lại phần chưa phân bổ.
+              Bấm <strong>Phân bổ vào quỹ</strong> để chia tiền vào một hoặc nhiều quỹ cùng lúc. Bấm <strong>Rút / Chi</strong> ở một quỹ để lấy tiền
+              ra (xem mục ngay bên dưới).
             </>,
           ]}
         />
@@ -264,9 +268,65 @@ export default function GuidePage() {
         />
       </Section>
 
+      <Section id="rut-chi" icon={ArrowUpFromLine} title="Lấy tiền ra khỏi quỹ: Rút hay Chi từ quỹ?" link={{ href: '/goals', label: 'Mở Mục tiêu' }}>
+        <p>
+          Nút <strong>Rút / Chi</strong> trên mỗi quỹ có hai cách. Chọn đúng cách để số liệu tiết kiệm, chi tiêu và thặng dư luôn khớp với thực tế.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-line p-3.5">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Receipt className="size-4 text-brand-ink" aria-hidden />
+              Chi tiêu từ quỹ
+            </p>
+            <p className="mt-1.5">
+              Khi bạn <strong>tiêu tiền của quỹ</strong>: đi du lịch bằng quỹ du lịch, sửa xe bằng quỹ khẩn cấp…
+            </p>
+            <Points
+              items={[
+                <>App ghi một khoản chi vào <strong>Thu chi</strong>, có nhãn “Chi từ quỹ”, và trừ vào quỹ.</>,
+                'Tiền đó rời hẳn khỏi tiền tiết kiệm, phần chưa phân bổ không đổi.',
+                'Khoản chi vẫn tính vào ngân sách và cảnh báo ngân sách như mọi khoản chi khác.',
+                <>Muốn sửa hay xoá thì làm ở <strong>Thu chi</strong>: quỹ tự cập nhật theo. Có nút Hoàn tác ngay sau khi ghi.</>,
+              ]}
+            />
+          </div>
+          <div className="rounded-2xl border border-line p-3.5">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <ArrowUpFromLine className="size-4 text-brand-ink" aria-hidden />
+              Rút về tiết kiệm
+            </p>
+            <p className="mt-1.5">
+              Khi bạn <strong>đổi kế hoạch</strong>: bớt tiền ở quỹ này để chuyển sang quỹ khác, hoặc để dành chưa gán vào đâu.
+            </p>
+            <Points
+              items={[
+                'Tiền quay về tiền tiết kiệm chưa phân bổ, rồi bạn phân bổ lại sang quỹ khác.',
+                'Không tạo giao dịch thu chi nào, không ảnh hưởng chi tiêu hay thặng dư.',
+                'Chỉ rút được phần đã phân bổ. Tiền có sẵn từ đầu và tiền lãi chỉ dùng được bằng cách chi từ quỹ.',
+              ]}
+            />
+          </div>
+        </div>
+        <div className="rounded-2xl bg-brand-soft p-3.5 text-sm text-ink">
+          <p className="font-semibold">Thặng dư và chi từ quỹ</p>
+          <p className="mt-1 text-ink-2">
+            Thặng dư = thu nhập − chi tiêu − tiết kiệm của <strong>từng tháng</strong>, tức số tiền còn dư từ thu nhập tháng đó. Khoản chi từ quỹ dùng tiền
+            đã để dành từ trước, nên <strong>mặc định không bị trừ vào thặng dư</strong>, để tháng đó không trông như bạn tiêu quá tay.
+          </p>
+          <p className="mt-1 text-ink-2">
+            Muốn tính cả vào, hãy tick ô <strong>“Tính cả chi từ quỹ”</strong> dưới con số thặng dư ở trang Tổng quan hoặc Phân tích (ô này chỉ hiện khi có khoản
+            chi từ quỹ). Lựa chọn được lưu trên từng máy. Con số “Tích lũy” ở Phân tích luôn bằng thu nhập − chi tiêu thật, dù chọn cách nào.
+          </p>
+        </div>
+      </Section>
+
       <Section id="thu-chi" icon={ArrowLeftRight} title="Sổ thu chi" link={{ href: '/transactions', label: 'Mở Thu chi' }}>
         <Points
           items={[
+            <>
+              <strong>Cách vào:</strong> trên điện thoại, mở <strong>Tổng quan</strong>, ở khung “Giao dịch gần đây” bấm <strong>Xem tất cả</strong>. Trên máy tính có sẵn
+              mục <strong>Thu chi</strong> ở thanh bên.
+            </>,
             'Danh sách mọi giao dịch theo tháng, mới nhất trước.',
             <>
               <strong>Lọc</strong> theo tháng, loại (thu nhập / chi tiêu) và phân loại. <strong>Tìm kiếm</strong> theo khoản mục hoặc ghi chú,
@@ -402,6 +462,10 @@ export default function GuidePage() {
           <Faq q="Vì sao “Hôm nay còn được chi” thay đổi mỗi ngày?">
             Con số chia đều phần ngân sách còn lại cho số ngày còn lại trong tháng. Hôm qua tiêu ít thì hôm nay được chi nhiều hơn, và ngược
             lại.
+          </Faq>
+          <Faq q="Thặng dư có phải là số tiền đang có không?">
+            Không hẳn. Thặng dư là số tiền <strong>còn dư của từng tháng</strong> (thu nhập − chi tiêu − tiết kiệm), không cộng dồn và không gồm tiền bạn đã có
+            trước khi dùng app. Tiền để dành nằm ở tiết kiệm và các quỹ (trang Mục tiêu). Trang Phân tích có thêm “Tích lũy” = thu nhập − chi tiêu của cả năm.
           </Faq>
           <Faq q="Tiết kiệm có bị tính là chi tiêu không?">
             Không. Tiền gửi tiết kiệm hay đầu tư ghi vào nhóm <strong>Tiết kiệm/Đầu tư</strong>, tính riêng và không làm tăng tổng chi tiêu.

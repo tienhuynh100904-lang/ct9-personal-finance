@@ -18,6 +18,20 @@ function show(kind: Kind, message: string, options: Options = {}) {
   })
 }
 
+/**
+ * Runs `show` once a dialog that was just closed has left the screen. A toast raised while a dialog is
+ * open is shown inside that dialog (the page behind it is inert), and disappears with it: so a toast
+ * about a dialog's own result must be raised after closing, never before.
+ *
+ *     onDone()                                   // close the dialog
+ *     afterDialogClose(() => toast.success(...)) // then tell the page
+ *
+ * Errors do not need this: the dialog stays open on an error, so the toast belongs inside it.
+ */
+export function afterDialogClose(show: () => void) {
+  window.setTimeout(show, 150)
+}
+
 /** Notifications in the top-right corner, backed by sonner. Callable from any client code. */
 export const toast = {
   success: (message: string, options?: Options) => show('success', message, options),

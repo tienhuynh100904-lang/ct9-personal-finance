@@ -451,11 +451,22 @@ create policy "Owner full access" on public.goal_allocations
 
 -- Tổng tiền đã tiết kiệm và tổng đã chia vào quỹ của người đang đăng nhập.
 -- security_invoker: RLS của 2 bảng vẫn áp dụng, nên mỗi người chỉ thấy số của mình.
+-- "Chi từ quỹ": a transaction paid with money taken from a goal. It stays an ordinary expense
+-- (it shows in Thu chi and in the budgets), but the app leaves it out of the month's surplus by
+-- default, and its goal_allocations row (transaction_id) takes the money out of the goal.
+alter table public.transactions add column if not exists from_savings boolean not null default false;
+alter table public.goal_allocations
+  add column if not exists transaction_id uuid references public.transactions (id) on delete cascade;
+create unique index if not exists goal_allocations_transaction_key
+  on public.goal_allocations (transaction_id) where transaction_id is not null;
+
 create or replace view public.savings_pool with (security_invoker = true) as
 select
   (select coalesce(sum(t.amount), 0) from public.transactions t
      where t.kind = 'expense' and t.category = 'saving')::bigint as saved,
-  (select coalesce(sum(a.amount), 0) from public.goal_allocations a)::bigint as allocated;
+  (select coalesce(sum(a.amount), 0) from public.goal_allocations a)::bigint as allocated,
+  (select coalesce(sum(t.amount), 0) from public.transactions t
+     where t.kind = 'expense' and t.from_savings)::bigint as spent;
 
 -- Chia tiền tiết kiệm vào một hoặc nhiều quỹ (số dương) hoặc rút ra (số âm)
 -- trong 1 lần. Từ chối nếu tổng chia vượt số tiền chưa phân bổ, nếu rút quá số
@@ -506,16 +517,83 @@ begin
     values (v_user, v_item.goal_id, v_item.amount, p_on, nullif(btrim(coalesce(p_note, '')), ''));
   end loop;
 
-  select p.saved - p.allocated into v_available from public.savings_pool p;
+  select p.saved - p.spent - p.allocated into v_available from public.savings_pool p;
   if v_total > 0 and v_available < 0 then
     raise exception 'insufficient_pool';
   end if;
 end;
 $$;
 
+-- Chi tiêu thẳng từ quỹ: tạo giao dịch chi (đánh dấu from_savings) và trừ tiền
+-- khỏi quỹ trong 1 lần. Xoá giao dịch đó (kể cả "Hoàn tác") thì tiền về lại quỹ.
+create or replace function public.spend_from_goal(
+  p_goal_id uuid,
+  p_amount bigint,
+  p_item text,
+  p_category text,
+  p_occurred_on date,
+  p_note text default null
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_tx   uuid;
+begin
+  if v_user is null then
+    raise exception 'not authenticated';
+  end if;
+  if p_category not in ('essential', 'non_essential', 'incidental') then
+    raise exception 'invalid_category';
+  end if;
+  if not exists (select 1 from public.goals g where g.id = p_goal_id and g.user_id = v_user) then
+    raise exception 'goal_not_found';
+  end if;
+
+  insert into public.transactions (user_id, kind, item, category, amount, occurred_on, note, from_savings)
+  values (v_user, 'expense', btrim(p_item), p_category, p_amount, p_occurred_on, nullif(btrim(coalesce(p_note, '')), ''), true)
+  returning id into v_tx;
+
+  insert into public.goal_allocations (user_id, goal_id, amount, allocated_on, note, transaction_id)
+  values (v_user, p_goal_id, -p_amount, p_occurred_on, btrim(p_item), v_tx);
+
+  return v_tx;
+end;
+$$;
+
+-- Sửa một khoản "chi từ quỹ" ở trang Thu chi: số tiền và ngày được cập nhật theo vào
+-- quỹ. Đổi thành khoản thu hoặc nhóm Tiết kiệm thì nó không còn là chi từ quỹ nữa.
+create or replace function public.sync_goal_spend()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.kind = 'expense' and new.category <> 'saving' then
+    update public.goal_allocations
+      set amount = -new.amount, allocated_on = new.occurred_on, note = new.item
+      where transaction_id = new.id;
+  else
+    delete from public.goal_allocations where transaction_id = new.id;
+    new.from_savings := false;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists transactions_sync_goal_spend on public.transactions;
+create trigger transactions_sync_goal_spend
+  before update on public.transactions
+  for each row when (old.from_savings) execute function public.sync_goal_spend();
+
 revoke all on public.goals, public.goal_allocations, public.savings_pool from anon;
 revoke execute on function public.allocate_savings(jsonb, date, text) from public, anon;
+revoke execute on function public.spend_from_goal(uuid, bigint, text, text, date, text) from public, anon;
 
 grant select, insert, update, delete on public.goals, public.goal_allocations to authenticated;
 grant select on public.savings_pool to authenticated;
 grant execute on function public.allocate_savings(jsonb, date, text) to authenticated;
+grant execute on function public.spend_from_goal(uuid, bigint, text, text, date, text) to authenticated;
