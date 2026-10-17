@@ -10,8 +10,10 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: 'vi',
     start_url: '/',
     display: 'standalone',
+    // Splash screen only. A manifest has one colour for both themes, so it never sets
+    // `theme_color`: on Android that would paint the installed app's bottom navigation bar light
+    // even in dark mode. The status bar follows the page's theme-color meta (lib/theme.ts) instead.
     background_color: THEME_COLORS.light,
-    theme_color: THEME_COLORS.light,
     icons: [
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml' },
       { src: '/apple-icon', sizes: '180x180', type: 'image/png' },

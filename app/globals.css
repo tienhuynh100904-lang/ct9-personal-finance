@@ -166,6 +166,8 @@
 
 @layer base {
   html {
+    /* Painted behind overscroll and, where Chrome draws edge-to-edge, behind the system bars. */
+    background-color: var(--bg);
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
   }
