@@ -1,9 +1,7 @@
-import { Settings } from 'lucide-react'
-import Link from 'next/link'
 import { unstable_rethrow } from 'next/navigation'
 import { Suspense } from 'react'
 import { Logo } from '@/components/app/logo'
-import { AddTransactionButton, BottomNav, SidebarNav } from '@/components/app/navigation'
+import { AddTransactionButton, BottomNav, SidebarNav, TopBarLinks } from '@/components/app/navigation'
 import { UserMenu, UserMenuFallback } from '@/components/app/user-menu'
 import { TransactionComposer } from '@/components/transactions/composer'
 import { getItems, getItemUsage } from '@/lib/data'
@@ -32,13 +30,7 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
       <header className="sticky top-0 z-30 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
         <div className="flex h-14 items-center justify-between pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]">
           <Logo />
-          <Link
-            href="/settings"
-            className="group grid size-11 place-items-center rounded-xl text-ink-2 hover:bg-surface-2 active:bg-surface-2"
-            aria-label="Cài đặt"
-          >
-            <Settings className="size-5 transition-transform duration-500 group-hover:rotate-90" aria-hidden />
-          </Link>
+          <TopBarLinks />
         </div>
       </header>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus } from 'lucide-react'
+import { BookOpen, Plus, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { buttonClasses } from '@/components/ui/button'
@@ -50,13 +50,13 @@ export function AddTransactionButton({ className }: { className?: string }) {
 type NavItem = (typeof NAV_ITEMS)[number]
 
 /**
- * Phone and tablet navigation: five destinations around a raised brand "Ghi" button (Cài đặt is
- * the gear in the top bar). The add button is the most-used control in the app, so it sits in the
- * thumb zone. Six slots fit a 360px phone because labels never wrap and drop to 10px below 380px.
+ * Phone and tablet navigation: four destinations around a raised brand "Ghi" button, which stays
+ * centered. The add button is the most-used control in the app, so it sits in the thumb zone.
+ * Hướng dẫn and Cài đặt live in the top bar instead (see `TopBarLinks`).
  */
 export function BottomNav() {
   const pathname = usePathname()
-  const [first, second, third, fourth, fifth] = NAV_ITEMS
+  const [first, second, third, fourth] = NAV_ITEMS
 
   const renderLink = ({ href, label, icon: Icon }: NavItem) => {
     const active = isActivePath(pathname, href)
@@ -66,12 +66,12 @@ export function BottomNav() {
         href={href}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'group flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] whitespace-nowrap transition-colors max-[380px]:text-[10px] max-[380px]:tracking-tight',
+          'group flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
           active ? 'font-semibold text-brand-ink' : 'text-muted',
         )}
       >
         <span
-          className={cn('grid h-8 w-12 place-items-center rounded-full transition-colors', active && 'bg-brand-soft')}
+          className={cn('grid h-8 w-14 place-items-center rounded-full transition-colors', active && 'bg-brand-soft')}
         >
           <Icon
             className={cn('size-[22px] transition-transform duration-200 group-active:scale-90', active && 'icon-pop')}
@@ -95,7 +95,7 @@ export function BottomNav() {
         <button
           type="button"
           onClick={() => openComposer()}
-          className="group flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-brand-ink"
+          className="group flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-semibold text-brand-ink"
           aria-label="Ghi giao dịch mới"
         >
           <span className="-mt-6 grid size-14 place-items-center rounded-2xl border border-brand-edge bg-brand text-on-brand shadow-[var(--shadow-fab)] ring-4 ring-surface transition-transform motion-safe:active:scale-95">
@@ -105,8 +105,39 @@ export function BottomNav() {
         </button>
         {renderLink(third)}
         {renderLink(fourth)}
-        {renderLink(fifth)}
       </div>
+    </nav>
+  )
+}
+
+const TOP_BAR_LINKS = [
+  { href: '/guide', label: 'Hướng dẫn', icon: BookOpen, motion: 'group-hover:-rotate-6' },
+  { href: '/settings', label: 'Cài đặt', icon: Settings, motion: 'group-hover:rotate-90' },
+] as const
+
+/** Phone and tablet top bar, right side: Hướng dẫn next to Cài đặt (the bottom bar keeps the daily pages). */
+export function TopBarLinks() {
+  const pathname = usePathname()
+  return (
+    <nav aria-label="Hướng dẫn và cài đặt" className="flex items-center gap-1">
+      {TOP_BAR_LINKS.map(({ href, label, icon: Icon, motion }) => {
+        const active = isActivePath(pathname, href)
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-label={label}
+            title={label}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'group grid size-11 place-items-center rounded-xl transition-colors',
+              active ? 'bg-brand-soft text-brand-ink' : 'text-ink-2 hover:bg-surface-2 active:bg-surface-2',
+            )}
+          >
+            <Icon className={cn('size-5 transition-transform duration-500', motion, active && 'icon-pop')} aria-hidden />
+          </Link>
+        )
+      })}
     </nav>
   )
 }
