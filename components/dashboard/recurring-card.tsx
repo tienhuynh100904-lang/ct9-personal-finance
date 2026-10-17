@@ -132,20 +132,30 @@ export function RecurringCard({ data }: { data: RecurringData }) {
 
   if (open.length === 0) {
     return (
-      <section className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 shadow-[var(--shadow-1)]">
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[color-mix(in_oklab,var(--s-good)_14%,var(--surface))] text-positive">
-          <CheckCheck className="icon-pop size-4.5" aria-hidden />
-        </span>
-        <p className="min-w-0 flex-1 text-sm">
-          <span className="font-medium">Đã xong khoản định kỳ tháng {monthNumber}</span>
-          <span className="text-muted">
-            {' '}
-            · {done.length} đã ghi{skipped.length ? `, ${skipped.length} bỏ qua` : ''}
+      <section className="rounded-2xl border border-line bg-surface px-4 py-3 shadow-[var(--shadow-1)]">
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[color-mix(in_oklab,var(--s-good)_14%,var(--surface))] text-positive">
+            <CheckCheck className="icon-pop size-4.5" aria-hidden />
           </span>
-        </p>
-        <Link href="/settings#recurring" className="shrink-0 text-sm font-medium text-brand-ink hover:underline">
-          Quản lý
-        </Link>
+          <p className="min-w-0 flex-1 text-sm">
+            <span className="font-medium">Đã xong khoản định kỳ tháng {monthNumber}</span>
+            <span className="text-muted">
+              {' '}
+              · {done.length} đã ghi{skipped.length ? `, ${skipped.length} bỏ qua` : ''}
+            </span>
+          </p>
+          <Link href="/settings#recurring" className="shrink-0 text-sm font-medium text-brand-ink hover:underline">
+            Quản lý
+          </Link>
+        </div>
+        {/* A skipped item must stay restorable even when nothing else is pending. */}
+        {skipped.length > 0 ? (
+          <div className="mt-2.5 flex flex-wrap gap-2 border-t border-line pt-2.5 text-xs">
+            {skipped.map((m) => (
+              <SkippedChip key={m.rule.id} entry={m} disabled={pending} onRestore={() => startTransition(() => unskip(m))} />
+            ))}
+          </div>
+        ) : null}
       </section>
     )
   }
@@ -210,17 +220,7 @@ export function RecurringCard({ data }: { data: RecurringData }) {
             </span>
           ))}
           {skipped.map((m) => (
-            <button
-              key={m.rule.id}
-              type="button"
-              onClick={() => startTransition(() => unskip(m))}
-              disabled={pending}
-              className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-line-strong px-2.5 text-muted hover:text-ink"
-              title="Bấm để hoàn tác bỏ qua"
-            >
-              <Undo2 className="size-3.5" aria-hidden />
-              Bỏ qua: {m.rule.item}
-            </button>
+            <SkippedChip key={m.rule.id} entry={m} disabled={pending} onRestore={() => startTransition(() => unskip(m))} />
           ))}
           <Link href="/settings#recurring" className="ml-auto font-medium text-brand-ink hover:underline">
             Quản lý
@@ -311,5 +311,23 @@ function RecurringRow({
         </div>
       )}
     </li>
+  )
+}
+
+/** "Bỏ qua: Điện — Hiện lại": undoes a skip, so the entry waits for confirmation again this month. */
+function SkippedChip({ entry, disabled, onRestore }: { entry: MonthlyRecurring; disabled: boolean; onRestore: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRestore}
+      disabled={disabled}
+      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-line-strong px-2.5 text-muted hover:text-ink disabled:opacity-50 pointer-coarse:h-10"
+      aria-label={`Hiện lại ${entry.rule.item} để xác nhận tháng này`}
+    >
+      <Undo2 className="size-3.5" aria-hidden />
+      <span>
+        Bỏ qua: {entry.rule.item} · <span className="font-medium text-brand-ink">Hiện lại</span>
+      </span>
+    </button>
   )
 }

@@ -75,7 +75,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
 }
 
 /** Warm glow, a faint dot grid and slowly falling coins. Decorative only. */
-function AuthBackdrop() {
+export function AuthBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
       <div className="auth-glow absolute inset-0" />

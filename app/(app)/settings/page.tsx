@@ -1,4 +1,4 @@
-import { KeyRound, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/app/page-header'
@@ -7,7 +7,7 @@ import { ItemsManager } from '@/components/settings/items-manager'
 import { RecurringManager } from '@/components/settings/recurring-manager'
 import { ReminderSettings } from '@/components/settings/reminder-settings'
 import { ThemePicker } from '@/components/settings/theme-picker'
-import { PasswordForm } from '@/components/settings/password-form'
+import { ChangePasswordButton } from '@/components/settings/change-password-button'
 import { buttonClasses } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -40,24 +40,10 @@ export default function SettingsPage() {
         </Suspense>
         <Card>
           <CardHeader title="Tài khoản" description="Ứng dụng chỉ cho phép đăng nhập, không có đăng ký." />
-          <CardBody className="space-y-6">
+          <CardBody>
             <Suspense fallback={<Skeleton className="h-10 max-w-sm" />}>
               <Account />
             </Suspense>
-            <div className="border-t border-line pt-5">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand-ink">
-                  <KeyRound className="icon-swing size-5" aria-hidden />
-                </span>
-                <div>
-                  <h3 className="text-sm font-semibold">Đổi mật khẩu</h3>
-                  <p className="text-xs text-muted">Mật khẩu mới phải đạt đủ các yêu cầu bên dưới.</p>
-                </div>
-              </div>
-              <Suspense fallback={<Skeleton className="h-96 max-w-md" />}>
-                <ChangePassword />
-              </Suspense>
-            </div>
           </CardBody>
         </Card>
       </div>
@@ -102,26 +88,24 @@ async function Items() {
   return <ItemsManager items={items} usage={usage} />
 }
 
-/** The form needs the email so the policy can reject passwords built from it. */
-async function ChangePassword() {
-  const { user } = await getSession()
-  return <PasswordForm email={user.email} />
-}
-
 async function Account() {
   const { user } = await getSession()
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
+      <div className="min-w-0">
         <p className="text-sm text-muted">Đang đăng nhập bằng</p>
-        <p className="font-medium">{user.email}</p>
+        <p className="truncate font-medium">{user.email}</p>
       </div>
-      <form action={signOut}>
-        <button type="submit" className={buttonClasses('secondary')}>
-          <LogOut className="size-4" aria-hidden />
-          Đăng xuất
-        </button>
-      </form>
+      <div className="flex flex-wrap gap-2">
+        {/* The email lets the password rules reject passwords built from it. */}
+        <ChangePasswordButton email={user.email} />
+        <form action={signOut}>
+          <button type="submit" className={buttonClasses('secondary')}>
+            <LogOut className="size-4" aria-hidden />
+            Đăng xuất
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

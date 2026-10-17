@@ -1,6 +1,6 @@
 'use client'
 
-import { Download, Inbox, SlidersHorizontal } from 'lucide-react'
+import { Download, Inbox, SlidersHorizontal, Upload } from 'lucide-react'
 import { useId, useLayoutEffect, useMemo, useState } from 'react'
 import { MonthSwitcher, useMonthParam, type MonthValue } from '@/components/app/period'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import { buildTransactionsCsv, csvFileName } from '@/lib/csv'
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, monthOf, type Category, type Kind } from '@/lib/finance'
 import { formatDate, formatSignedVND, formatVND, formatWeekday, normalizeText } from '@/lib/format'
 import type { TransactionRecord } from '@/lib/types'
+import { ImportCsvDialog } from './import-csv-dialog'
 import { TransactionRow } from './transaction-row'
 
 const PAGE_SIZE = 120
@@ -53,6 +54,7 @@ export function TransactionsView({
   const [category, setCategory] = useState<'all' | Category>('all')
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const filtersId = useId()
 
   // Next.js keeps this page mounted (hidden) when you navigate away: don't leave the panel open.
@@ -195,6 +197,11 @@ export function TransactionsView({
           <p className="text-sm text-muted">
             <span className="font-medium text-ink">{filtered.length}</span> giao dịch · {periodLabel}
           </p>
+          <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="size-4 transition-transform duration-200 group-hover:-translate-y-0.5" aria-hidden />
+            Nhập CSV
+          </Button>
           <Popover
             label="Xuất CSV"
             panelWidth={272}
@@ -235,6 +242,7 @@ export function TransactionsView({
               </div>
             )}
           </Popover>
+          </div>
         </div>
 
         {filtered.length === 0 ? (
@@ -290,6 +298,8 @@ export function TransactionsView({
           </div>
         )}
       </div>
+
+      <ImportCsvDialog open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   )
 }

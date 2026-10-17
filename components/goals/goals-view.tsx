@@ -395,8 +395,13 @@ function GoalCard({
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-[15px] font-semibold tracking-tight">{goal.name}</h3>
           <p className="mt-0.5 text-xs text-muted">
-            Hạn {formatDate(progress.deadline)} · {GOAL_PLACES[goal.place].label}
-            {goal.rate_bp > 0 ? ` · ${String(goal.rate_bp / 100).replace('.', ',')}%/năm` : ''}
+            Hạn {formatDate(progress.deadline)}
+            {/* Place and rate are in the detail dialog; on a phone they only make the line wrap. */}
+            <span className="max-sm:hidden">
+              {' '}
+              · {GOAL_PLACES[goal.place].label}
+              {goal.rate_bp > 0 ? ` · ${String(goal.rate_bp / 100).replace('.', ',')}%/năm` : ''}
+            </span>
           </p>
         </div>
         <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', PACE[pace].className)}>{PACE[pace].label}</span>
@@ -501,7 +506,10 @@ function EmergencyCard({
           <div className="min-w-0 flex-1">
             <h2 className="text-[15px] font-semibold tracking-tight">{goal.name}</h2>
             <p className="mt-0.5 text-xs text-muted">
-              {goal.reserve_months} tháng × {formatVND(monthly)} chi phí cố định · hạn {formatDate(progress.deadline)}
+              <span className="sm:hidden">Hạn {formatDate(progress.deadline)}</span>
+              <span className="max-sm:hidden">
+                {goal.reserve_months} tháng × {formatVND(monthly)} chi phí cố định · hạn {formatDate(progress.deadline)}
+              </span>
             </p>
           </div>
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', PACE[progress.pace].className)}>{PACE[progress.pace].label}</span>

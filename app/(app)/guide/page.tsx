@@ -177,7 +177,7 @@ export default function GuidePage() {
         <Steps
           items={[
             <>
-              Tạo khoản định kỳ trong <strong>Cài đặt → Giao dịch định kỳ</strong> (có mẫu chọn nhanh), hoặc tick{' '}
+              Tạo khoản định kỳ trong <strong>Cài đặt → Giao dịch định kỳ → Thêm</strong> (hộp thoại có mẫu chọn nhanh), hoặc tick{' '}
               <strong>Lặp lại hằng tháng</strong> khi ghi một giao dịch mới.
             </>,
             <>
@@ -335,6 +335,13 @@ export default function GuidePage() {
             <>
               <strong>Xuất CSV</strong>: tải danh sách đang lọc về máy, mở được bằng Excel.
             </>,
+            <>
+              <strong>Nhập CSV</strong>: nạp nhiều khoản thu hoặc chi cùng lúc từ file CSV. Trong hộp thoại, chọn tab <strong>Chi tiêu</strong> hoặc{' '}
+              <strong>Thu nhập</strong> theo loại giao dịch trong file (mỗi file một loại), rồi chọn file. File cần 5 cột{' '}
+              <strong>Tên khoản mục, Ngày chi (hoặc Ngày nhận), Phân loại, Số tiền, Ghi chú</strong>, như file bạn xuất từ app. Tab nào thì hộp thoại hiện đúng tiêu đề,
+              danh sách phân loại và file mẫu của loại đó. Nếu file thuộc loại khác với tab đang chọn, app báo và cho chuyển tab bằng một lần bấm. App cho xem trước, báo dòng
+              lỗi, bỏ qua dòng đã có sẵn (nhập hai lần không bị trùng) và có nút Hoàn tác sau khi nhập.
+            </>,
           ]}
         />
       </Section>
@@ -408,14 +415,14 @@ export default function GuidePage() {
               thoại hiện một thông báo nhắc bạn ghi thu chi. Trên iPhone cần cài app ra màn hình chính trước (xem mục Cài app).
             </>,
             <>
-              <strong>Giao dịch định kỳ</strong>: thêm, sửa, tạm dừng hoặc xoá các khoản lặp lại hằng tháng.
+              <strong>Giao dịch định kỳ</strong>: bấm <strong>Thêm</strong> hoặc biểu tượng bút chì ở từng dòng để thêm, sửa trong hộp thoại; công tắc để tạm dừng; thùng rác để xoá.
             </>,
             <>
               <strong>Danh mục khoản mục</strong>: các gợi ý khi ghi. Đặt phân loại mặc định, đổi tên (có thể đổi luôn tên trong các giao dịch
               cũ) hoặc xoá. Xoá khỏi danh mục không xoá giao dịch đã ghi.
             </>,
             <>
-              <strong>Đổi mật khẩu</strong> và <strong>Đăng xuất</strong>.
+              Nút <strong>Đổi mật khẩu</strong> (mở hộp thoại nhập mật khẩu hiện tại và mật khẩu mới) và nút <strong>Đăng xuất</strong>.
             </>,
           ]}
         />
