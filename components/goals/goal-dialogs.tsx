@@ -12,11 +12,13 @@ import { markNoSpend } from '@/lib/actions/day-marks'
 import { allocateSavings, deleteAllocation, saveGoal, setGoalArchived, spendFromGoal } from '@/lib/actions/goals'
 import { deleteTransaction } from '@/lib/actions/transactions'
 import { showBudgetAlert } from '@/lib/budget-alert-toast'
+import { ItemPicker } from '@/components/transactions/item-picker'
 import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import { todayISO } from '@/lib/dates'
 import type { SpendingCategory } from '@/lib/finance'
 import { formatDate, formatPercent, formatSignedVND, formatVND } from '@/lib/format'
+import { itemKey } from '@/lib/items'
 import {
   addMonthsISO,
   emergencyTarget,
@@ -32,6 +34,7 @@ import {
 } from '@/lib/goals'
 import { runAction } from '@/lib/run-action'
 import { afterDialogClose, toast } from '@/lib/toast'
+import type { ItemRecord, ItemUsage } from '@/lib/types'
 import type { FieldErrors, GoalInput } from '@/lib/validation'
 
 const MONTH_CHOICES = ['6', '12', '24', '36', '60']
@@ -471,26 +474,45 @@ const SPEND_CATEGORIES: SpendingCategory[] = ['essential', 'non_essential', 'inc
 export function TakeOutDialog({
   progress,
   initialMode = 'spend',
+  items,
+  usage,
   onClose,
 }: {
   progress: GoalProgress | null
   initialMode?: TakeOutMode
+  items: ItemRecord[]
+  usage: ItemUsage[]
   onClose: () => void
 }) {
   return (
     <Dialog open={progress !== null} onClose={onClose} title={progress ? `Lấy tiền từ ${progress.goal.name}` : 'Lấy tiền từ quỹ'}>
-      {progress ? <TakeOutForm key={progress.goal.id} progress={progress} initialMode={initialMode} onDone={onClose} /> : null}
+      {progress ? <TakeOutForm key={progress.goal.id} progress={progress} initialMode={initialMode} items={items} usage={usage} onDone={onClose} /> : null}
     </Dialog>
   )
 }
 
-function TakeOutForm({ progress, initialMode, onDone }: { progress: GoalProgress; initialMode: TakeOutMode; onDone: () => void }) {
+function TakeOutForm({
+  progress,
+  initialMode,
+  items,
+  usage,
+  onDone,
+}: {
+  progress: GoalProgress
+  initialMode: TakeOutMode
+  items: ItemRecord[]
+  usage: ItemUsage[]
+  onDone: () => void
+}) {
   const { goal } = progress
   const withdrawMax = Math.max(0, progress.allocated)
   const spendMax = Math.max(0, Math.floor(progress.accrual.balance))
   const [mode, setMode] = useState<TakeOutMode>(withdrawMax > 0 ? initialMode : 'spend')
   const [amount, setAmount] = useState(0)
-  const [item, setItem] = useState(goal.kind === 'emergency' ? '' : goal.name)
+  // A goal named like an item ("Du lịch") starts with that item picked; the emergency fund starts empty.
+  const [item, setItem] = useState<ItemRecord | null>(() =>
+    goal.kind === 'emergency' ? null : (items.find((i) => i.kind === 'expense' && !i.archived_at && itemKey(i.name) === itemKey(goal.name)) ?? null),
+  )
   const [category, setCategory] = useState<SpendingCategory>(goal.kind === 'emergency' ? 'incidental' : 'non_essential')
   const [date, setDate] = useState(todayISO())
   const [note, setNote] = useState('')
@@ -498,7 +520,7 @@ function TakeOutForm({ progress, initialMode, onDone }: { progress: GoalProgress
 
   const max = mode === 'withdraw' ? withdrawMax : spendMax
   const tooMuch = amount > max
-  const canSubmit = amount > 0 && !tooMuch && (mode === 'withdraw' || item.trim() !== '')
+  const canSubmit = amount > 0 && !tooMuch && (mode === 'withdraw' || item !== null)
 
   function submit() {
     if (!canSubmit) return
@@ -513,14 +535,15 @@ function TakeOutForm({ progress, initialMode, onDone }: { progress: GoalProgress
         )
         return
       }
-      const result = await runAction(() => spendFromGoal({ goalId: goal.id, amount, item, category, date, note }))
+      if (!item) return
+      const result = await runAction(() => spendFromGoal({ goalId: goal.id, amount, itemId: item.id, category, date, note }))
       if (!result) return
       if (!result.ok) return void toast.error(result.error)
       const transactionId = result.transactionId
       onDone()
       afterDialogClose(() => {
         toast.success(`Đã chi ${formatVND(amount)} từ “${goal.name}”`, {
-          description: `Đã ghi “${item.trim()}” vào Thu chi, đánh dấu chi từ quỹ.`,
+          description: `Đã ghi “${item.name}” vào Thu chi, đánh dấu chi từ quỹ.`,
           action: transactionId
             ? {
                 label: 'Hoàn tác',
@@ -598,7 +621,16 @@ function TakeOutForm({ progress, initialMode, onDone }: { progress: GoalProgress
             {mode === 'spend' ? (
               <>
                 <Field label="Khoản mục" htmlFor="takeout-item">
-                  <Input id="takeout-item" value={item} onChange={(e) => setItem(e.target.value)} maxLength={100} placeholder="VD: Vé máy bay, Sửa xe…" />
+                  <ItemPicker
+                    id="takeout-item"
+                    kind="expense"
+                    items={items}
+                    usage={usage}
+                    value={item}
+                    onChange={(next) => setItem(next)}
+                    newItemCategory={category}
+                    placeholder="Tìm hoặc chọn: Vé máy bay, Sửa xe…"
+                  />
                 </Field>
                 <div>
                   <p className="mb-1.5 text-sm font-medium text-ink-2">Phân loại</p>

@@ -8,36 +8,41 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { ChoiceChips, Segmented } from '@/components/ui/choice'
 import { Dialog, DialogBody, DialogFooter } from '@/components/ui/dialog'
 import { Field, Input } from '@/components/ui/field'
+import { ItemPicker } from '@/components/transactions/item-picker'
 import { Switch } from '@/components/ui/switch'
 import { deleteRecurring, saveRecurring, setRecurringActive } from '@/lib/actions/recurring'
 import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import { categoriesFor, isCategoryOf, type Category, type Kind } from '@/lib/finance'
 import { formatSignedVND } from '@/lib/format'
+import { itemKey } from '@/lib/items'
 import type { RecurringRecord } from '@/lib/recurring'
 import { runAction } from '@/lib/run-action'
 import { afterDialogClose, toast } from '@/lib/toast'
+import type { ItemRecord, ItemUsage } from '@/lib/types'
 import type { FieldErrors, RecurringInput } from '@/lib/validation'
 
-/** One-tap starting points for the usual monthly entries. */
+/** One-tap starting points for the usual monthly entries; each shows only if the item is in the user's list. */
 const TEMPLATES: { item: string; kind: Kind; category: Category; day: number }[] = [
   { item: 'Tiền nhà', kind: 'expense', category: 'essential', day: 1 },
+  { item: 'Điện nước', kind: 'expense', category: 'essential', day: 5 },
   { item: 'Điện', kind: 'expense', category: 'essential', day: 5 },
   { item: 'Nước', kind: 'expense', category: 'essential', day: 5 },
   { item: 'Wifi', kind: 'expense', category: 'essential', day: 10 },
+  { item: 'Internet/Điện thoại', kind: 'expense', category: 'essential', day: 10 },
   { item: 'Lương', kind: 'income', category: 'main', day: 5 },
 ]
 
 /** Quick days; "Cuối tháng" is 31, which falls on the last day of shorter months. */
 const DAY_CHOICES = ['1', '5', '10', '15', '20', '25', '31']
 
-type Draft = { kind: Kind; item: string; category: Category | null; amount: number; day: string }
+type Draft = { kind: Kind; item: ItemRecord | null; category: Category | null; amount: number; day: string }
 
 /**
  * Giao dịch định kỳ in Cài đặt: a clean list, with adding and editing in a dialog so the page
  * does not carry a form.
  */
-export function RecurringManager({ rules }: { rules: RecurringRecord[] }) {
+export function RecurringManager({ rules, items, usage }: { rules: RecurringRecord[]; items: ItemRecord[]; usage: ItemUsage[] }) {
   const [dialog, setDialog] = useState<{ open: boolean; rule: RecurringRecord | null }>({ open: false, rule: null })
   const openAdd = () => setDialog({ open: true, rule: null })
 
@@ -75,18 +80,25 @@ export function RecurringManager({ rules }: { rules: RecurringRecord[] }) {
         description="Mỗi tháng đến ngày, app gợi ý sẵn để bạn chỉ cần xác nhận. App không tự ghi."
       >
         {dialog.open ? (
-          <RecurringForm key={dialog.rule?.id ?? 'new'} rule={dialog.rule} onDone={() => setDialog((d) => ({ ...d, open: false }))} />
+          <RecurringForm key={dialog.rule?.id ?? 'new'} rule={dialog.rule} items={items} usage={usage} onDone={() => setDialog((d) => ({ ...d, open: false }))} />
         ) : null}
       </Dialog>
     </Card>
   )
 }
 
-function RecurringForm({ rule, onDone }: { rule: RecurringRecord | null; onDone: () => void }) {
+function RecurringForm({ rule, items, usage, onDone }: { rule: RecurringRecord | null; items: ItemRecord[]; usage: ItemUsage[]; onDone: () => void }) {
   const [draft, setDraft] = useState<Draft>(
     rule
-      ? { kind: rule.kind, item: rule.item, category: rule.category, amount: rule.amount, day: String(rule.day_of_month) }
-      : { kind: 'expense', item: '', category: null, amount: 0, day: '1' },
+      ? {
+          kind: rule.kind,
+          // A rule whose item is no longer listed stays editable under its own name.
+          item: items.find((i) => i.id === rule.item_id) ?? { id: rule.item_id, kind: rule.kind, name: rule.item, default_category: null, archived_at: null },
+          category: rule.category,
+          amount: rule.amount,
+          day: String(rule.day_of_month),
+        }
+      : { kind: 'expense', item: null, category: null, amount: 0, day: '1' },
   )
   const [errors, setErrors] = useState<FieldErrors<RecurringInput>>({})
   const [pending, startTransition] = useTransition()
@@ -95,16 +107,22 @@ function RecurringForm({ rule, onDone }: { rule: RecurringRecord | null; onDone:
     setDraft((d) => ({ ...d, ...patch }))
   }
 
+  // The usual monthly items the user actually has.
+  const templates = TEMPLATES.flatMap((template) => {
+    const item = items.find((i) => i.kind === template.kind && !i.archived_at && itemKey(i.name) === itemKey(template.item))
+    return item ? [{ template, item }] : []
+  })
+
   const day = Number(draft.day)
   const validDay = Number.isInteger(day) && day >= 1 && day <= 31
-  const canSubmit = draft.item.trim() !== '' && draft.amount > 0 && draft.category !== null && validDay
+  const canSubmit = draft.item !== null && draft.amount > 0 && draft.category !== null && validDay
 
   function submit() {
-    if (!canSubmit) return
+    if (!canSubmit || !draft.item) return
     const input: RecurringInput = {
       id: rule?.id,
       kind: draft.kind,
-      item: draft.item,
+      item_id: draft.item.id,
       category: draft.category as Category,
       amount: draft.amount,
       day_of_month: day,
@@ -121,7 +139,7 @@ function RecurringForm({ rule, onDone }: { rule: RecurringRecord | null; onDone:
       onDone()
       afterDialogClose(() =>
         toast.success(rule ? 'Đã lưu khoản định kỳ' : 'Đã thêm khoản định kỳ', {
-          description: `“${draft.item.trim()}” · ngày ${day} hằng tháng`,
+          description: `“${draft.item?.name ?? ''}” · ngày ${day} hằng tháng`,
         }),
       )
     })
@@ -137,22 +155,22 @@ function RecurringForm({ rule, onDone }: { rule: RecurringRecord | null; onDone:
       }}
     >
       <DialogBody className="space-y-4">
-        {rule ? null : (
+        {rule || templates.length === 0 ? null : (
           <div>
             <p className="mb-1.5 text-xs font-medium text-muted">Chọn nhanh</p>
             <div className="flex flex-wrap gap-2">
-              {TEMPLATES.map((t) => (
+              {templates.map(({ template: t, item }) => (
                 <button
                   key={t.item}
                   type="button"
-                  onClick={() => update({ item: t.item, kind: t.kind, category: t.category, day: String(t.day) })}
+                  onClick={() => update({ item, kind: t.kind, category: t.category, day: String(t.day) })}
                   className={cn(
                     'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors pointer-coarse:h-10',
-                    draft.item === t.item ? 'border-brand-edge bg-brand text-on-brand' : 'border-line-strong bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink',
+                    draft.item?.id === item.id ? 'border-brand-edge bg-brand text-on-brand' : 'border-line-strong bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink',
                   )}
                 >
                   {t.kind === 'income' ? <ArrowDownLeft className="size-3.5" aria-hidden /> : <ArrowUpRight className="size-3.5" aria-hidden />}
-                  {t.item}
+                  {item.name}
                 </button>
               ))}
             </div>
@@ -162,22 +180,26 @@ function RecurringForm({ rule, onDone }: { rule: RecurringRecord | null; onDone:
         <Segmented
           label="Loại"
           value={draft.kind}
-          onChange={(kind) => update({ kind, category: draft.category && isCategoryOf(kind, draft.category) ? draft.category : null })}
+          onChange={(kind) => update({ kind, item: null, category: draft.category && isCategoryOf(kind, draft.category) ? draft.category : null })}
           options={[
             { value: 'expense', label: 'Chi tiêu' },
             { value: 'income', label: 'Thu nhập' },
           ]}
         />
 
-        <Field label="Khoản mục" htmlFor="recurring-item" error={errors.item}>
-          <Input
+        <Field label="Khoản mục" htmlFor="recurring-item" error={errors.item_id}>
+          <ItemPicker
+            key={draft.kind}
             id="recurring-item"
-            data-autofocus={rule ? undefined : ''}
+            kind={draft.kind}
+            items={items}
+            usage={usage}
             value={draft.item}
-            onChange={(e) => update({ item: e.target.value })}
-            placeholder={draft.kind === 'income' ? 'VD: Lương' : 'VD: Tiền nhà, Điện nước…'}
-            maxLength={100}
-            aria-invalid={Boolean(errors.item)}
+            onChange={(item, suggested) => update({ item, category: item && suggested && draft.category === null ? suggested : draft.category })}
+            newItemCategory={draft.category}
+            placeholder={draft.kind === 'income' ? 'Tìm hoặc chọn: Lương' : 'Tìm hoặc chọn: Tiền nhà, Điện nước…'}
+            invalid={Boolean(errors.item_id)}
+            describedBy={errors.item_id ? 'recurring-item-error' : undefined}
           />
         </Field>
 

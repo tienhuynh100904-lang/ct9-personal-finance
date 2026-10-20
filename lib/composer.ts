@@ -3,11 +3,11 @@ import type { TransactionRecord } from './types'
 
 export type EditableTransaction = Pick<
   TransactionRecord,
-  'id' | 'kind' | 'item' | 'category' | 'amount' | 'occurred_on' | 'note' | 'from_savings'
+  'id' | 'kind' | 'item_id' | 'item' | 'category' | 'amount' | 'occurred_on' | 'note' | 'from_savings'
 >
 
-/** A one-tap starting point: item, category and (usually) the last amount used. */
-export type ComposerPreset = { item: string; category: Category; amount?: number }
+/** A one-tap starting point: item (by id), category and (usually) the last amount used. */
+export type ComposerPreset = { item_id: string; category: Category; amount?: number }
 
 export type ComposerRequest = {
   kind?: Kind

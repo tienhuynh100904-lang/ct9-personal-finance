@@ -7,6 +7,8 @@ import { budgetCrossing, clearNoSpendMark } from '../transaction-effects'
 import { validateTransaction, type FieldErrors, type TransactionInput } from '../validation'
 import { isUuid, type ActionResult } from './result'
 
+const FOREIGN_KEY_VIOLATION = '23503'
+
 export async function saveTransaction(
   input: TransactionInput,
 ): Promise<
@@ -40,6 +42,10 @@ export async function saveTransaction(
         .select('id')
 
   if (error) {
+    // The item is gone, or is of the other kind (thu/chi): the form should offer the list again.
+    if (error.code === FOREIGN_KEY_VIOLATION) {
+      return { ok: false, error: 'Khoản mục không còn trong danh mục. Hãy chọn lại.', fieldErrors: { item_id: 'Chọn khoản mục.' } }
+    }
     console.error('saveTransaction failed', error)
     return { ok: false, error: 'Không lưu được giao dịch. Vui lòng thử lại.' }
   }

@@ -1,8 +1,24 @@
 import type { BudgetRow, Category, Kind, Txn } from './finance'
 
-export type TransactionRecord = Txn & { id: string; note: string | null; created_at: string }
-export type ItemRecord = { id: string; kind: Kind; name: string; default_category: Category | null }
-export type ItemUsage = { kind: Kind; item: string; uses: number; last_used_on: string; last_category: Category }
+/** `item` is the name of the item `item_id` points to (joined in when the rows are read). */
+export type TransactionRecord = Txn & { id: string; item_id: string; note: string | null; created_at: string }
+export type ItemRecord = {
+  id: string
+  kind: Kind
+  name: string
+  default_category: Category | null
+  /** Set when the item was hidden because transactions still use it. */
+  archived_at: string | null
+}
+/** One row per item, used or not: how often it was used and the category of its latest use. */
+export type ItemUsage = {
+  item_id: string
+  kind: Kind
+  item: string
+  uses: number
+  last_used_on: string | null
+  last_category: Category | null
+}
 
 /** What the home screen's habit card needs: a recent window of entries, independent of the viewed year. */
 export type HabitData = {

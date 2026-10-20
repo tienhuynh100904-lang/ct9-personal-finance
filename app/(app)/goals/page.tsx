@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { GoalsView } from '@/components/goals/goals-view'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { PageSkeleton } from '@/components/ui/skeleton'
-import { getGoalsData } from '@/lib/data'
+import { getGoalsData, getItems, getItemUsage } from '@/lib/data'
 import { resolveYear } from '@/lib/period'
 
 export const metadata: Metadata = { title: 'Mục tiêu' }
@@ -22,7 +22,7 @@ export default function GoalsPage({ searchParams }: PageProps<'/goals'>) {
 
 async function Goals({ searchParams }: Pick<PageProps<'/goals'>, 'searchParams'>) {
   const { today } = await resolveYear(searchParams)
-  const data = await getGoalsData(today.iso)
+  const [data, items, usage] = await Promise.all([getGoalsData(today.iso), getItems(), getItemUsage()])
   if (!data) {
     return (
       <Card>
@@ -33,5 +33,5 @@ async function Goals({ searchParams }: Pick<PageProps<'/goals'>, 'searchParams'>
       </Card>
     )
   }
-  return <GoalsView data={data} />
+  return <GoalsView data={data} items={items} usage={usage} />
 }

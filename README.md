@@ -9,7 +9,7 @@
 | **Phân tích** `/analytics` | Sheet *Phân loại thu chi*: tổng quan cả năm, 5 biểu đồ, bảng 12 tháng (số tiền / tỷ trọng), chi tiết từng khoản mục |
 | **Ngân sách** `/budget` | Sheet *Lập ngân sách*: dự kiến, thực tế, chênh lệch cho thu nhập, chi tiêu, tiết kiệm/đầu tư |
 | **Mục tiêu** `/goals` | File *Theo dõi mục tiêu tài chính*: Quỹ khẩn cấp có sẵn + quỹ mục tiêu tự tạo; chia tiền tiết kiệm vào quỹ, tính số cần gửi mỗi tháng, lãi theo ngày, cột mốc 25/50/75/100%, đánh giá kế hoạch có khả thi |
-| **Cài đặt** `/settings` | **Giao diện Sáng / Tối / Theo thiết bị**, **nhắc ghi chép mỗi ngày**, **giao dịch định kỳ**, danh mục khoản mục (gợi ý khi nhập), đổi mật khẩu, đăng xuất |
+| **Cài đặt** `/settings` | **Giao diện Sáng / Tối / Theo thiết bị**, **nhắc ghi chép mỗi ngày**, **giao dịch định kỳ**, danh mục khoản mục (mỗi giao dịch thuộc một khoản mục), đổi mật khẩu, đăng xuất |
 
 ## Thiết kế để bạn quen ghi chép mỗi ngày
 

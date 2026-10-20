@@ -14,6 +14,7 @@ import type { GoalsData } from '@/lib/data'
 import { formatDate, formatPercent, formatVND } from '@/lib/format'
 import { runAction } from '@/lib/run-action'
 import { afterDialogClose, toast } from '@/lib/toast'
+import type { ItemRecord, ItemUsage } from '@/lib/types'
 import {
   EMERGENCY_BENCHMARKS,
   feasibility,
@@ -49,7 +50,7 @@ function monthlyNeed(p: GoalProgress | null): number {
  * fund that every account has, and any number of custom goals. Money is moved from the pool into
  * goals (one or several at once) and back out; nothing here creates transactions.
  */
-export function GoalsView({ data }: { data: GoalsData }) {
+export function GoalsView({ data, items, usage }: { data: GoalsData; items: ItemRecord[]; usage: ItemUsage[] }) {
   const { goals, allocations, pool, monthlySaving, essentialAverage, today } = data
   const progresses = useMemo(() => goals.map((g) => goalProgress(g, allocations, today)), [goals, allocations, today])
 
@@ -263,7 +264,7 @@ export function GoalsView({ data }: { data: GoalsData }) {
         otherMonthly={otherMonthly}
       />
       <AllocateDialog open={allocateFor !== undefined} onClose={() => setAllocateFor(undefined)} progresses={active} available={available} focusGoalId={allocateFor ?? null} />
-      <TakeOutDialog progress={withdrawFrom} onClose={() => setWithdrawFrom(null)} />
+      <TakeOutDialog progress={withdrawFrom} items={items} usage={usage} onClose={() => setWithdrawFrom(null)} />
       <GoalDetailDialog
         progress={detail}
         allocations={allocations}

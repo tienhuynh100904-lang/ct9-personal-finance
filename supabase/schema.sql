@@ -12,13 +12,61 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- 1) Giao dịch thu / chi (tương ứng sheet "Thu Chi")
+-- 1) Danh mục khoản mục (cột "Khoản mục" trong Excel). Do người dùng tự
+--    tạo và đặt tên; mỗi giao dịch thuộc đúng 1 khoản mục. Khác với
+--    "phân loại" (category): phân loại là nhóm cố định của giao dịch
+--    (thu 3 nhóm, chi 4 nhóm), còn `default_category` ở đây chỉ là gợi ý
+--    phân loại khi chọn khoản mục. `archived_at`: khoản mục đã ẩn (đã có
+--    giao dịch nên không xoá được) không hiện khi nhập mới.
+-- ---------------------------------------------------------------------
+create table if not exists public.items (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind             text not null check (kind in ('income', 'expense')),
+  name             text not null check (char_length(btrim(name)) between 1 and 100),
+  default_category text,
+  archived_at      timestamptz,
+  created_at       timestamptz not null default now(),
+  constraint items_default_category_matches_kind check (
+    default_category is null or
+    (kind = 'income'  and default_category in ('main', 'side', 'irregular')) or
+    (kind = 'expense' and default_category in ('essential', 'non_essential', 'incidental', 'saving'))
+  ),
+  constraint items_user_kind_name_key unique (user_id, kind, name),
+  -- Để giao dịch tham chiếu (user_id, id, kind): khoản mục phải cùng chủ và cùng thu/chi.
+  constraint items_identity_key unique (user_id, id, kind)
+);
+
+-- Nâng cấp từ bản cũ (bảng items đã có từ trước):
+alter table public.items add column if not exists archived_at timestamptz;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'items_identity_key' and conrelid = 'public.items'::regclass) then
+    alter table public.items add constraint items_identity_key unique (user_id, id, kind);
+  end if;
+end $$;
+
+-- Khoá so khớp tên khoản mục: không phân biệt hoa/thường và khoảng trắng thừa
+-- ("Cà  phê" và "cà phê" là một). Giữ khớp với itemKey() trong lib/items.ts.
+create or replace function public.item_key(p_name text)
+returns text
+language sql
+immutable
+parallel safe
+set search_path = ''
+as $$
+  select lower(normalize(btrim(regexp_replace(p_name, '\s+', ' ', 'g')), NFC))
+$$;
+
+-- ---------------------------------------------------------------------
+-- 2) Giao dịch thu / chi (tương ứng sheet "Thu Chi"). Mỗi giao dịch thuộc
+--    1 khoản mục (item_id) và có 1 phân loại (category).
 -- ---------------------------------------------------------------------
 create table if not exists public.transactions (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
   kind        text not null check (kind in ('income', 'expense')),
-  item        text not null check (char_length(btrim(item)) between 1 and 100),
+  item_id     uuid not null,
   category    text not null,
   amount      bigint not null check (amount > 0 and amount < 1000000000000),
   occurred_on date not null,
@@ -28,14 +76,16 @@ create table if not exists public.transactions (
   constraint transactions_category_matches_kind check (
     (kind = 'income'  and category in ('main', 'side', 'irregular')) or
     (kind = 'expense' and category in ('essential', 'non_essential', 'incidental', 'saving'))
-  )
+  ),
+  constraint transactions_item_fk foreign key (user_id, item_id, kind)
+    references public.items (user_id, id, kind)
 );
 
 create index if not exists transactions_user_date_idx
   on public.transactions (user_id, occurred_on desc, created_at desc);
 
 -- ---------------------------------------------------------------------
--- 2) Ngân sách dự kiến theo tháng (tương ứng sheet "Lập ngân sách")
+-- 3) Ngân sách dự kiến theo tháng (tương ứng sheet "Lập ngân sách")
 -- ---------------------------------------------------------------------
 create table if not exists public.budgets (
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -50,37 +100,9 @@ create table if not exists public.budgets (
 );
 
 -- ---------------------------------------------------------------------
--- 3) Danh mục khoản mục (gợi ý khi nhập — như cột "Khoản mục" trong Excel)
+-- 4) View `item_usage` (thống kê khoản mục đã dùng), khoản mục mẫu cho tài
+--    khoản mới và bước chuyển dữ liệu cũ nằm ở phần 12 cuối file.
 -- ---------------------------------------------------------------------
-create table if not exists public.items (
-  id               uuid primary key default gen_random_uuid(),
-  user_id          uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  kind             text not null check (kind in ('income', 'expense')),
-  name             text not null check (char_length(btrim(name)) between 1 and 100),
-  default_category text,
-  created_at       timestamptz not null default now(),
-  constraint items_default_category_matches_kind check (
-    default_category is null or
-    (kind = 'income'  and default_category in ('main', 'side', 'irregular')) or
-    (kind = 'expense' and default_category in ('essential', 'non_essential', 'incidental', 'saving'))
-  ),
-  constraint items_user_kind_name_key unique (user_id, kind, name)
-);
-
--- ---------------------------------------------------------------------
--- 4) Thống kê khoản mục đã dùng — để gợi ý nhanh khi nhập giao dịch.
---    security_invoker: view chạy với quyền người gọi nên RLS vẫn áp dụng.
--- ---------------------------------------------------------------------
-create or replace view public.item_usage with (security_invoker = true) as
-select
-  t.user_id,
-  t.kind,
-  t.item,
-  count(*)::integer as uses,
-  max(t.occurred_on) as last_used_on,
-  (array_agg(t.category order by t.occurred_on desc, t.created_at desc))[1] as last_category
-from public.transactions t
-group by t.user_id, t.kind, t.item;
 
 -- ---------------------------------------------------------------------
 -- 5) Tự cập nhật cột updated_at
@@ -107,46 +129,49 @@ create trigger budgets_set_updated_at
   for each row execute function public.set_updated_at();
 
 -- ---------------------------------------------------------------------
--- 6) Đổi tên khoản mục (và cập nhật các giao dịch đã ghi) trong 1 lần.
---    Nếu tên mới đã tồn tại thì gộp 2 khoản mục làm một.
+-- 6) Đổi tên khoản mục. Giao dịch gắn theo item_id nên tự đi theo tên mới.
+--    Nếu tên mới trùng một khoản mục khác (cùng loại thu/chi) thì gộp: các
+--    giao dịch và khoản định kỳ chuyển sang khoản mục kia. Trả về id khoản
+--    mục còn lại.
 -- ---------------------------------------------------------------------
-create or replace function public.rename_item(
-  p_kind text,
-  p_old_name text,
-  p_new_name text,
-  p_update_transactions boolean default true
-)
-returns void
+drop function if exists public.rename_item(text, text, text, boolean);
+
+create or replace function public.rename_item(p_item_id uuid, p_new_name text)
+returns uuid
 language plpgsql
 security invoker
 set search_path = ''
 as $$
 declare
-  v_user uuid := auth.uid();
-  v_new  text := btrim(p_new_name);
+  v_user  uuid := auth.uid();
+  v_new   text := btrim(regexp_replace(coalesce(p_new_name, ''), '\s+', ' ', 'g'));
+  v_kind  text;
+  v_other uuid;
 begin
   if v_user is null then
     raise exception 'not authenticated';
   end if;
-  if v_new = '' then
-    raise exception 'empty name';
+  if v_new = '' or char_length(v_new) > 100 then
+    raise exception 'invalid_name';
   end if;
 
-  if exists (
-    select 1 from public.items
-    where user_id = v_user and kind = p_kind and name = v_new and name <> p_old_name
-  ) then
-    delete from public.items
-    where user_id = v_user and kind = p_kind and name = p_old_name;
-  else
-    update public.items set name = v_new
-    where user_id = v_user and kind = p_kind and name = p_old_name;
+  select kind into v_kind from public.items where id = p_item_id and user_id = v_user;
+  if not found then
+    raise exception 'item_not_found' using errcode = 'P0002';
   end if;
 
-  if p_update_transactions then
-    update public.transactions set item = v_new
-    where user_id = v_user and kind = p_kind and item = p_old_name;
+  select id into v_other from public.items
+  where user_id = v_user and kind = v_kind and id <> p_item_id and public.item_key(name) = public.item_key(v_new);
+
+  if v_other is not null then
+    update public.transactions           set item_id = v_other where item_id = p_item_id and user_id = v_user;
+    update public.recurring_transactions set item_id = v_other where item_id = p_item_id and user_id = v_user;
+    delete from public.items where id = p_item_id and user_id = v_user;
+    return v_other;
   end if;
+
+  update public.items set name = v_new where id = p_item_id and user_id = v_user;
+  return p_item_id;
 end;
 $$;
 
@@ -176,12 +201,11 @@ create policy "Owner full access" on public.items
   with check ((select auth.uid()) = user_id);
 
 -- Chỉ người đã đăng nhập mới được truy cập; khách (anon) không có quyền gì.
-revoke all on public.transactions, public.budgets, public.items, public.item_usage from anon;
-revoke execute on function public.rename_item(text, text, text, boolean) from public, anon;
+revoke all on public.transactions, public.budgets, public.items from anon;
+revoke execute on function public.rename_item(uuid, text) from public, anon;
 
 grant select, insert, update, delete on public.transactions, public.budgets, public.items to authenticated;
-grant select on public.item_usage to authenticated;
-grant execute on function public.rename_item(text, text, text, boolean) to authenticated;
+grant execute on function public.rename_item(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- 8) Ngày đánh dấu "Không chi tiêu": giữ chuỗi ngày ghi chép không bị
@@ -269,7 +293,7 @@ create table if not exists public.recurring_transactions (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
   kind         text not null check (kind in ('income', 'expense')),
-  item         text not null check (char_length(btrim(item)) between 1 and 100),
+  item_id      uuid not null,
   category     text not null,
   amount       bigint not null check (amount > 0 and amount < 1000000000000),
   day_of_month smallint not null check (day_of_month between 1 and 31),
@@ -280,7 +304,9 @@ create table if not exists public.recurring_transactions (
   constraint recurring_category_matches_kind check (
     (kind = 'income'  and category in ('main', 'side', 'irregular')) or
     (kind = 'expense' and category in ('essential', 'non_essential', 'incidental', 'saving'))
-  )
+  ),
+  constraint recurring_item_fk foreign key (user_id, item_id, kind)
+    references public.items (user_id, id, kind)
 );
 
 create index if not exists recurring_transactions_user_idx on public.recurring_transactions (user_id);
@@ -356,8 +382,8 @@ begin
     raise exception 'recurring transaction not found' using errcode = 'P0002';
   end if;
 
-  insert into public.transactions (user_id, kind, item, category, amount, occurred_on, note)
-  values (v_user, v_rule.kind, v_rule.item, v_rule.category, coalesce(p_amount, v_rule.amount), p_occurred_on, v_rule.note)
+  insert into public.transactions (user_id, kind, item_id, category, amount, occurred_on, note)
+  values (v_user, v_rule.kind, v_rule.item_id, v_rule.category, coalesce(p_amount, v_rule.amount), p_occurred_on, v_rule.note)
   returning id into v_tx;
 
   insert into public.recurring_runs as run (recurring_id, user_id, year, month, status, transaction_id)
@@ -526,10 +552,12 @@ $$;
 
 -- Chi tiêu thẳng từ quỹ: tạo giao dịch chi (đánh dấu from_savings) và trừ tiền
 -- khỏi quỹ trong 1 lần. Xoá giao dịch đó (kể cả "Hoàn tác") thì tiền về lại quỹ.
+drop function if exists public.spend_from_goal(uuid, bigint, text, text, date, text);
+
 create or replace function public.spend_from_goal(
   p_goal_id uuid,
   p_amount bigint,
-  p_item text,
+  p_item_id uuid,
   p_category text,
   p_occurred_on date,
   p_note text default null
@@ -540,8 +568,9 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_user uuid := auth.uid();
-  v_tx   uuid;
+  v_user      uuid := auth.uid();
+  v_tx        uuid;
+  v_item_name text;
 begin
   if v_user is null then
     raise exception 'not authenticated';
@@ -553,12 +582,18 @@ begin
     raise exception 'goal_not_found';
   end if;
 
-  insert into public.transactions (user_id, kind, item, category, amount, occurred_on, note, from_savings)
-  values (v_user, 'expense', btrim(p_item), p_category, p_amount, p_occurred_on, nullif(btrim(coalesce(p_note, '')), ''), true)
+  select i.name into v_item_name from public.items i
+  where i.id = p_item_id and i.user_id = v_user and i.kind = 'expense';
+  if not found then
+    raise exception 'item_not_found' using errcode = 'P0002';
+  end if;
+
+  insert into public.transactions (user_id, kind, item_id, category, amount, occurred_on, note, from_savings)
+  values (v_user, 'expense', p_item_id, p_category, p_amount, p_occurred_on, nullif(btrim(coalesce(p_note, '')), ''), true)
   returning id into v_tx;
 
   insert into public.goal_allocations (user_id, goal_id, amount, allocated_on, note, transaction_id)
-  values (v_user, p_goal_id, -p_amount, p_occurred_on, btrim(p_item), v_tx);
+  values (v_user, p_goal_id, -p_amount, p_occurred_on, v_item_name, v_tx);
 
   return v_tx;
 end;
@@ -574,7 +609,8 @@ as $$
 begin
   if new.kind = 'expense' and new.category <> 'saving' then
     update public.goal_allocations
-      set amount = -new.amount, allocated_on = new.occurred_on, note = new.item
+      set amount = -new.amount, allocated_on = new.occurred_on,
+          note = (select i.name from public.items i where i.id = new.item_id)
       where transaction_id = new.id;
   else
     delete from public.goal_allocations where transaction_id = new.id;
@@ -591,9 +627,198 @@ create trigger transactions_sync_goal_spend
 
 revoke all on public.goals, public.goal_allocations, public.savings_pool from anon;
 revoke execute on function public.allocate_savings(jsonb, date, text) from public, anon;
-revoke execute on function public.spend_from_goal(uuid, bigint, text, text, date, text) from public, anon;
+revoke execute on function public.spend_from_goal(uuid, bigint, uuid, text, date, text) from public, anon;
 
 grant select, insert, update, delete on public.goals, public.goal_allocations to authenticated;
 grant select on public.savings_pool to authenticated;
 grant execute on function public.allocate_savings(jsonb, date, text) to authenticated;
-grant execute on function public.spend_from_goal(uuid, bigint, text, text, date, text) to authenticated;
+grant execute on function public.spend_from_goal(uuid, bigint, uuid, text, date, text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 12) Khoản mục bắt buộc: khoản mục mẫu, chuyển dữ liệu cũ và thống kê.
+--
+--     a) `seed_default_items`: khoản mục mẫu cho tài khoản mới (chạy tự
+--        động khi đăng ký) — người dùng sửa, xoá hoặc thêm tuỳ ý.
+--     b) Nâng cấp từ bản cũ, khi giao dịch còn lưu tên khoản mục dạng chữ
+--        (cột `item`): tạo khoản mục cho mọi tên đã dùng (gộp tên chỉ khác
+--        hoa/thường hay khoảng trắng), gắn `item_id` cho từng giao dịch và
+--        khoản định kỳ, rồi bỏ cột `item`. Không mất giao dịch nào. Chỉ chạy
+--        một lần; chạy lại file thì bước này tự bỏ qua.
+--     c) View `item_usage`: số lần dùng của từng khoản mục.
+-- ---------------------------------------------------------------------
+create or replace function public.seed_default_items(p_user uuid)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into public.items (user_id, kind, name, default_category)
+  select p_user, v.kind, v.name, v.category
+  from (values
+    ('expense', 'Ăn uống',            'essential'),
+    ('expense', 'Đi chợ',             'essential'),
+    ('expense', 'Xăng xe',            'essential'),
+    ('expense', 'Tiền nhà',           'essential'),
+    ('expense', 'Điện nước',          'essential'),
+    ('expense', 'Internet/Điện thoại', 'essential'),
+    ('expense', 'Cà phê',             'non_essential'),
+    ('expense', 'Mua sắm',            'non_essential'),
+    ('expense', 'Giải trí',           'non_essential'),
+    ('expense', 'Sức khoẻ',           'incidental'),
+    ('expense', 'Sửa chữa',           'incidental'),
+    ('expense', 'Tiết kiệm',          'saving'),
+    ('expense', 'Đầu tư',             'saving'),
+    ('income',  'Lương',              'main'),
+    ('income',  'Làm thêm',           'side'),
+    ('income',  'Thưởng',             'irregular')
+  ) as v(kind, name, category)
+  on conflict do nothing
+$$;
+
+do $$
+declare
+  v_legacy_tx  boolean := exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'transactions' and column_name = 'item');
+  v_legacy_rec boolean := exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'recurring_transactions' and column_name = 'item');
+  v_sources text;
+begin
+  if not (v_legacy_tx or v_legacy_rec) then
+    return;
+  end if;
+
+  -- View cũ đọc cột `item` nên phải bỏ trước khi bỏ cột; ngay bên dưới view mới được tạo lại.
+  drop view if exists public.item_usage;
+
+  -- Khoản mục đã có trong danh mục mà chỉ khác hoa/thường hay khoảng trắng: giữ cái tạo sớm nhất.
+  delete from public.items i
+  using (
+    select id, row_number() over (partition by user_id, kind, public.item_key(name) order by created_at, id) as rn
+    from public.items
+  ) d
+  where d.id = i.id and d.rn > 1;
+
+  update public.items
+  set name = btrim(regexp_replace(name, '\s+', ' ', 'g'))
+  where name <> btrim(regexp_replace(name, '\s+', ' ', 'g'));
+
+  -- Tên đã dùng trong giao dịch / khoản định kỳ mà chưa có trong danh mục: tạo mới
+  -- (viết hoa theo cách được dùng nhiều nhất). Phân loại mặc định để trống = "như lần trước".
+  select string_agg(s, ' union all ') into v_sources from (
+    select 'select user_id, kind, item from public.transactions' as s where v_legacy_tx
+    union all
+    select 'select user_id, kind, item from public.recurring_transactions' where v_legacy_rec
+  ) q;
+
+  execute format($f$
+    insert into public.items (user_id, kind, name)
+    select user_id, kind, name from (
+      select s.user_id, s.kind, s.name,
+             row_number() over (partition by s.user_id, s.kind, public.item_key(s.name) order by s.n desc, s.name) as rn
+      from (
+        select user_id, kind, btrim(regexp_replace(item, '\s+', ' ', 'g')) as name, count(*) as n
+        from (%s) u
+        group by 1, 2, 3
+      ) s
+      where not exists (
+        select 1 from public.items i
+        where i.user_id = s.user_id and i.kind = s.kind and public.item_key(i.name) = public.item_key(s.name)
+      )
+    ) x
+    where rn = 1
+  $f$, v_sources);
+
+  if v_legacy_tx then
+    alter table public.transactions add column if not exists item_id uuid;
+
+    update public.transactions t
+    set item_id = i.id
+    from public.items i
+    where t.item_id is null
+      and i.user_id = t.user_id and i.kind = t.kind
+      and public.item_key(i.name) = public.item_key(t.item);
+
+    alter table public.transactions alter column item_id set not null;
+    if not exists (select 1 from pg_constraint where conname = 'transactions_item_fk' and conrelid = 'public.transactions'::regclass) then
+      alter table public.transactions
+        add constraint transactions_item_fk foreign key (user_id, item_id, kind)
+        references public.items (user_id, id, kind);
+    end if;
+    alter table public.transactions drop column item;
+  end if;
+
+  if v_legacy_rec then
+    alter table public.recurring_transactions add column if not exists item_id uuid;
+
+    update public.recurring_transactions t
+    set item_id = i.id
+    from public.items i
+    where t.item_id is null
+      and i.user_id = t.user_id and i.kind = t.kind
+      and public.item_key(i.name) = public.item_key(t.item);
+
+    alter table public.recurring_transactions alter column item_id set not null;
+    if not exists (select 1 from pg_constraint where conname = 'recurring_item_fk' and conrelid = 'public.recurring_transactions'::regclass) then
+      alter table public.recurring_transactions
+        add constraint recurring_item_fk foreign key (user_id, item_id, kind)
+        references public.items (user_id, id, kind);
+    end if;
+    alter table public.recurring_transactions drop column item;
+  end if;
+
+  -- Tài khoản chưa có khoản mục nào (chưa ghi gì) cũng được khoản mục mẫu.
+  perform public.seed_default_items(u.id)
+  from auth.users u
+  where not exists (select 1 from public.items i where i.user_id = u.id);
+end $$;
+
+-- Hai khoản mục cùng loại không được trùng tên (không phân biệt hoa/thường, khoảng trắng).
+create unique index if not exists items_user_kind_key_idx on public.items (user_id, kind, public.item_key(name));
+create index if not exists transactions_item_idx on public.transactions (item_id);
+create index if not exists recurring_transactions_item_idx on public.recurring_transactions (item_id);
+
+-- Mọi khoản mục (kể cả chưa dùng) kèm số lần dùng và phân loại gần nhất.
+-- security_invoker: view chạy với quyền người gọi nên RLS vẫn áp dụng.
+drop view if exists public.item_usage;
+create view public.item_usage with (security_invoker = true) as
+select
+  i.user_id,
+  i.id as item_id,
+  i.kind,
+  i.name as item,
+  count(t.id)::integer as uses,
+  max(t.occurred_on) as last_used_on,
+  (array_agg(t.category order by t.occurred_on desc, t.created_at desc) filter (where t.id is not null))[1] as last_category
+from public.items i
+left join public.transactions t on t.item_id = i.id
+group by i.user_id, i.id, i.kind, i.name;
+
+revoke all on public.item_usage from anon;
+grant select on public.item_usage to authenticated;
+
+-- Khoản mục mẫu cho tài khoản mới, ngay khi đăng ký. Lỗi ở đây không được chặn việc đăng ký.
+create or replace function public.handle_new_user_items()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  begin
+    perform public.seed_default_items(new.id);
+  exception when others then
+    raise warning 'seed_default_items failed for %: %', new.id, sqlerrm;
+  end;
+  return new;
+end;
+$$;
+
+revoke execute on function public.seed_default_items(uuid) from public, anon, authenticated;
+revoke execute on function public.handle_new_user_items() from public, anon, authenticated;
+
+drop trigger if exists seed_items_on_signup on auth.users;
+create trigger seed_items_on_signup
+  after insert on auth.users
+  for each row execute function public.handle_new_user_items();

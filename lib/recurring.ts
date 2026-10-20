@@ -11,6 +11,8 @@ import type { Category, Kind } from './finance'
 export type RecurringRecord = {
   id: string
   kind: Kind
+  item_id: string
+  /** Name of the item `item_id` points to (joined in when the rules are read). */
   item: string
   category: Category
   amount: number

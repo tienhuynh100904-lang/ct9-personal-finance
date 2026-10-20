@@ -225,18 +225,18 @@ export function dailyAllowance(input: {
   return { status, planned, spentToday, todayCount, monthRemaining: Math.max(0, monthRemaining), daysLeft, allowance, remainingToday, overBy }
 }
 
-export type Preset = { item: string; category: Category; amount: number; count: number }
+export type Preset = { item_id: string; item: string; category: Category; amount: number; count: number }
 
 /** Most frequent expense items of the last 30 days, each with its latest amount and category. */
 export function recentPresets(txns: readonly Txn[], today: string, limit = 6): Preset[] {
   const from = addDays(today, -29)
   const groups = new Map<string, Preset & { lastDate: string; lastStamp: string }>()
-  for (const t of txns as readonly (Txn & { created_at?: string })[]) {
+  for (const t of txns as readonly (Txn & { item_id?: string; created_at?: string })[]) {
     if (t.kind !== 'expense' || t.category === 'saving' || t.occurred_on < from || t.occurred_on > today) continue
     const stamp = t.created_at ?? ''
     const group = groups.get(t.item)
     if (!group) {
-      groups.set(t.item, { item: t.item, category: t.category, amount: t.amount, count: 1, lastDate: t.occurred_on, lastStamp: stamp })
+      groups.set(t.item, { item_id: t.item_id ?? '', item: t.item, category: t.category, amount: t.amount, count: 1, lastDate: t.occurred_on, lastStamp: stamp })
       continue
     }
     group.count += 1
@@ -250,7 +250,7 @@ export function recentPresets(txns: readonly Txn[], today: string, limit = 6): P
   return [...groups.values()]
     .sort((a, b) => b.count - a.count || (a.lastDate < b.lastDate ? 1 : a.lastDate > b.lastDate ? -1 : 0) || a.item.localeCompare(b.item, 'vi'))
     .slice(0, limit)
-    .map(({ item, category, amount, count }) => ({ item, category, amount, count }))
+    .map(({ item_id, item, category, amount, count }) => ({ item_id, item, category, amount, count }))
 }
 
 export function greeting(hour: number): string {

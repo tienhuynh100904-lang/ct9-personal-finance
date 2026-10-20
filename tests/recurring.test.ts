@@ -5,6 +5,7 @@ import { confirmDate, dueDate, recurringForMonth, type RecurringRecord } from '.
 const rule = (id: string, item: string, day: number, active = true): RecurringRecord => ({
   id,
   kind: 'expense',
+  item_id: `item-${item}`,
   item,
   category: 'essential',
   amount: 100_000,

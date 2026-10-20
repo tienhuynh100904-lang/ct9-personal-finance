@@ -162,6 +162,7 @@ def build_sql(source_name, year, transactions, budget, items):
     w(f"-- Dữ liệu nhập từ file Excel: {source_name}")
     w(f"-- {len(transactions)} giao dịch, {len(budget)} ô ngân sách (năm {year}), {len(items)} khoản mục.")
     w("-- Chạy SAU supabase/schema.sql và SAU khi đã tạo tài khoản (Authentication → Users → Add user).")
+    w("-- Khoản mục được tạo trước, mỗi giao dịch gắn với một khoản mục theo tên.")
     w("-- Chạy lại nhiều lần không bị nhân đôi giao dịch.")
     w("do $$")
     w("declare")
@@ -171,31 +172,36 @@ def build_sql(source_name, year, transactions, budget, items):
     w("    raise exception 'Cần đúng 1 tài khoản trong Authentication → Users (hiện có %). Nếu có nhiều tài khoản, sửa câu lệnh chọn v_user theo email.', (select count(*) from auth.users);")
     w("  end if;")
     w("  select id into v_user from auth.users limit 1;")
-    w("")
-    w("  if exists (select 1 from public.transactions where user_id = v_user) then")
-    w("    raise notice 'Đã có giao dịch trong database — bỏ qua phần giao dịch để tránh trùng lặp.';")
-    if transactions:
-        w("  else")
-        w("    insert into public.transactions (user_id, kind, item, category, amount, occurred_on, note) values")
-        lines = [
-            f"      (v_user, '{t['kind']}', {sql_text(t['item'])}, '{t['category']}', {t['amount']}, '{t['date'].isoformat()}', {sql_text(t['note'])})"
-            for t in transactions
-        ]
-        w(",\n".join(lines) + ";")
-    w("  end if;")
-    if budget:
-        w("")
-        w("  insert into public.budgets (user_id, year, month, category, amount) values")
-        w(",\n".join(f"    (v_user, {year}, {m}, '{c}', {a})" for m, c, a in budget))
-        w("  on conflict (user_id, year, month, category) do update set amount = excluded.amount;")
     if items:
+        # Items first: every transaction belongs to one of them (by name, case and spacing ignored).
         w("")
         w("  insert into public.items (user_id, kind, name, default_category) values")
         w(",\n".join(
             f"    (v_user, '{kind}', {sql_text(name)}, {sql_text(category)})"
             for (kind, name), category in items.items()
         ))
-        w("  on conflict (user_id, kind, name) do nothing;")
+        w("  on conflict do nothing;")
+    w("")
+    w("  if exists (select 1 from public.transactions where user_id = v_user) then")
+    w("    raise notice 'Đã có giao dịch trong database — bỏ qua phần giao dịch để tránh trùng lặp.';")
+    if transactions:
+        w("  else")
+        w("    insert into public.transactions (user_id, kind, item_id, category, amount, occurred_on, note)")
+        w("    select v_user, d.kind, i.id, d.category, d.amount, d.occurred_on::date, d.note")
+        w("    from (values")
+        lines = [
+            f"      ('{t['kind']}', {sql_text(t['item'])}, '{t['category']}', {t['amount']}, '{t['date'].isoformat()}', {sql_text(t['note'])})"
+            for t in transactions
+        ]
+        w(",\n".join(lines))
+        w("    ) as d(kind, item, category, amount, occurred_on, note)")
+        w("    join public.items i on i.user_id = v_user and i.kind = d.kind and public.item_key(i.name) = public.item_key(d.item);")
+    w("  end if;")
+    if budget:
+        w("")
+        w("  insert into public.budgets (user_id, year, month, category, amount) values")
+        w(",\n".join(f"    (v_user, {year}, {m}, '{c}', {a})" for m, c, a in budget))
+        w("  on conflict (user_id, year, month, category) do update set amount = excluded.amount;")
     w("end $$;")
     return "\n".join(out) + "\n"
 

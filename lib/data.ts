@@ -3,6 +3,7 @@ import 'server-only'
 import { getSession } from './auth'
 import type { BudgetRow } from './finance'
 import { habitWindowStart, lastOfMonth } from './habit'
+import { RECURRING_ITEM_JOIN, TRANSACTION_ITEM_JOIN, withItemName } from './items'
 import { addMonthsISO, type AllocationRecord, type GoalRecord, type SavingsPool } from './goals'
 import type { RecurringRecord, RecurringRun } from './recurring'
 import { normalizeRemindAt } from './reminders'
@@ -16,7 +17,7 @@ export async function getTransactionsForYear(year: number): Promise<TransactionR
   return readTransactions(`${year}-01-01`, `${year}-12-31`)
 }
 
-const TRANSACTION_COLUMNS = 'id, kind, item, category, amount, occurred_on, note, created_at'
+const TRANSACTION_COLUMNS = `id, kind, item_id, category, amount, occurred_on, note, created_at, ${TRANSACTION_ITEM_JOIN}`
 
 /** Transactions with `occurred_on` in `[from, to]`, newest first. */
 async function readTransactions(from: string, to: string): Promise<TransactionRecord[]> {
@@ -55,7 +56,7 @@ async function readTransactionPages(from: string, to: string, columns: string): 
     }
     if (total === null) total = count ?? data.length
     if (data.length === 0) break
-    rows.push(...(data as unknown as TransactionRecord[]))
+    rows.push(...(data as unknown as { items: { name: string } | null }[]).map((row) => withItemName(row) as unknown as TransactionRecord))
   }
   return rows
 }
@@ -74,7 +75,7 @@ export async function getItems(): Promise<ItemRecord[]> {
   const { supabase } = await getSession()
   const { data, error } = await supabase
     .from('items')
-    .select('id, kind, name, default_category')
+    .select('id, kind, name, default_category, archived_at')
     .order('name')
   if (error) throw new Error(`Không tải được danh mục: ${error.message}`)
   return data
@@ -84,7 +85,7 @@ export async function getItemUsage(): Promise<ItemUsage[]> {
   const { supabase } = await getSession()
   const { data, error } = await supabase
     .from('item_usage')
-    .select('kind, item, uses, last_used_on, last_category')
+    .select('item_id, kind, item, uses, last_used_on, last_category')
     .order('uses', { ascending: false })
   if (error) throw new Error(`Không tải được thống kê khoản mục: ${error.message}`)
   return data
@@ -117,9 +118,8 @@ export async function getRecurringData(today: string): Promise<RecurringData | n
   const [rules, runs] = await Promise.all([
     supabase
       .from('recurring_transactions')
-      .select('id, kind, item, category, amount, day_of_month, note, active')
-      .order('day_of_month')
-      .order('item'),
+      .select(`id, kind, item_id, category, amount, day_of_month, note, active, ${RECURRING_ITEM_JOIN}`)
+      .order('day_of_month'),
     supabase.from('recurring_runs').select('recurring_id, status, transaction_id').eq('year', year).eq('month', month),
   ])
   for (const { error } of [rules, runs]) {
@@ -127,7 +127,9 @@ export async function getRecurringData(today: string): Promise<RecurringData | n
     if (isMissingTable(error)) return null
     throw new Error(`Không tải được giao dịch định kỳ: ${error.message}`)
   }
-  return { rules: rules.data ?? [], runs: runs.data ?? [], today }
+  const named = (rules.data ?? []).map((row) => withItemName(row as unknown as { items: { name: string } | null }) as unknown as RecurringRecord)
+  named.sort((a, b) => a.day_of_month - b.day_of_month || a.item.localeCompare(b.item, 'vi'))
+  return { rules: named, runs: runs.data ?? [], today }
 }
 
 export type GoalsData = {

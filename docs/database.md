@@ -42,7 +42,7 @@ Bốn bảng của ứng dụng:
 |---|---|---|
 | `transactions` | Mọi khoản **thu** và **chi** thực tế | Sheet *Thu Chi* |
 | `budgets` | Số tiền **dự kiến** từng tháng | Các ô vàng sheet *Lập ngân sách* |
-| `items` | Danh mục **khoản mục** để gợi ý khi nhập | Danh sách khoản mục ở sheet *Phân loại thu chi* |
+| `items` | Danh mục **khoản mục** do bạn tự tạo; mỗi giao dịch thuộc đúng một khoản mục | Danh sách khoản mục ở sheet *Phân loại thu chi* |
 | `day_marks` | Những ngày bạn đánh dấu **"Không chi tiêu"** | (mới, không có trong Excel) |
 
 Ngoài ra có bảng `auth.users` do Supabase tự quản (chứa email, mật khẩu đã mã hoá). Bạn không tự sửa bảng này bằng SQL, mà dùng **Authentication → Users** trên dashboard.
@@ -54,7 +54,7 @@ Trong Excel, thu nhập (cột A–E) và chi tiêu (cột G–K) là **hai bả
 
 | Excel | Cột database |
 |---|---|
-| Tên khoản mục | `item` |
+| Tên khoản mục | `item_id` (trỏ tới bảng `items`, tên nằm ở `items.name`) |
 | Ngày nhận / Ngày chi | `occurred_on` |
 | Phân loại | `category` |
 | Số tiền | `amount` |
@@ -81,6 +81,8 @@ erDiagram
     AUTH_USERS ||--o{ TRANSACTIONS : "user_id"
     AUTH_USERS ||--o{ BUDGETS : "user_id"
     AUTH_USERS ||--o{ ITEMS : "user_id"
+    ITEMS ||--o{ TRANSACTIONS : "item_id"
+    ITEMS ||--o{ RECURRING_TRANSACTIONS : "item_id"
     AUTH_USERS ||--o{ DAY_MARKS : "user_id"
     AUTH_USERS ||--o{ RECURRING_TRANSACTIONS : "user_id"
     RECURRING_TRANSACTIONS ||--o{ RECURRING_RUNS : "recurring_id"
@@ -92,7 +94,7 @@ erDiagram
         uuid id PK
         uuid user_id FK
         text kind "income | expense"
-        text item "tên khoản mục"
+        uuid item_id FK "khoản mục"
         text category "mã phân loại"
         bigint amount "đồng, số nguyên"
         date occurred_on
@@ -113,7 +115,8 @@ erDiagram
         uuid user_id FK
         text kind
         text name
-        text default_category
+        text default_category "gợi ý phân loại"
+        timestamptz archived_at "đã ẩn"
         timestamptz created_at
     }
     DAY_MARKS {
@@ -126,7 +129,7 @@ erDiagram
         uuid id PK
         uuid user_id FK
         text kind
-        text item
+        uuid item_id FK
         text category
         bigint amount
         smallint day_of_month "1-31"
@@ -168,7 +171,7 @@ erDiagram
 
 Hai điểm cần hiểu:
 
-- **`transactions.item` là chữ, không phải khoá liên kết tới `items`.** Đây là thiết kế có chủ ý: bạn xoá một khoản mục khỏi danh mục thì các giao dịch cũ **vẫn nguyên**. Bảng `items` chỉ là danh sách gợi ý.
+- **Mỗi giao dịch thuộc đúng một khoản mục** (`transactions.item_id`, bắt buộc). Khoản mục khác với phân loại: khoản mục do bạn tự tạo và đặt tên ("Cà phê", "Tiền nhà"…), còn phân loại là nhóm cố định (thu 3 nhóm, chi 4 nhóm, xem mục 4). Một giao dịch có **cả hai**, độc lập nhau. Khoá liên kết là `(user_id, item_id, kind)`, nên database từ chối giao dịch gắn vào khoản mục của người khác hoặc khoản mục thu cho giao dịch chi. Khoản mục đã có giao dịch **không xoá hẳn được**, chỉ ẩn đi (mục 5.3), nên giao dịch cũ luôn giữ đúng tên.
 - **Mọi bảng có `user_id`** trỏ tới tài khoản sở hữu. Khi xoá tài khoản trong Supabase, toàn bộ dữ liệu của tài khoản đó bị xoá theo (`on delete cascade`).
 
 ## 4. Bảng mã phân loại
@@ -196,7 +199,7 @@ Database từ chối ghi kiểu `kind = 'income'` mà `category = 'essential'` (
 | `id` | uuid | Mã định danh, tự sinh |
 | `user_id` | uuid | Chủ giao dịch, tự điền bằng người đang đăng nhập (`default auth.uid()`) |
 | `kind` | text | `income` hoặc `expense` |
-| `item` | text | Tên khoản mục, 1–100 ký tự (sau khi cắt khoảng trắng) |
+| `item_id` | uuid | Khoản mục của giao dịch (bảng `items`), bắt buộc, phải cùng chủ và cùng `kind` |
 | `category` | text | Mã phân loại, phải khớp `kind` (xem mục 4) |
 | `amount` | bigint | Số tiền **đồng, số nguyên**, lớn hơn 0 và nhỏ hơn 1.000 tỷ |
 | `occurred_on` | date | Ngày thu/chi (chỉ ngày, không có giờ) |
@@ -205,6 +208,7 @@ Database từ chối ghi kiểu `kind = 'income'` mà `category = 'essential'` (
 | `updated_at` | timestamptz | Lúc sửa gần nhất, trigger tự cập nhật |
 
 - Số tiền luôn **dương**. Thu hay chi do `kind` quyết định, không dùng số âm.
+- Tên khoản mục không lưu ở đây mà lấy từ `items.name` (app nối bảng khi đọc), nên đổi tên khoản mục là mọi giao dịch của nó đổi theo.
 - Chỉ mục `transactions_user_date_idx (user_id, occurred_on desc, created_at desc)` giúp tải danh sách theo ngày nhanh khi dữ liệu nhiều.
 
 ### 5.2 `budgets` — ngân sách dự kiến
@@ -227,20 +231,24 @@ Khoá chính gồm 4 cột `(user_id, year, month, category)`. Nghĩa là mỗi 
 | Cột | Ý nghĩa |
 |---|---|
 | `kind` | `income` hoặc `expense` (khoản mục thu và chi tách riêng) |
-| `name` | Tên khoản mục, ví dụ "Ăn uống" |
-| `default_category` | Phân loại mặc định điền sẵn khi chọn khoản mục. `null` = tự động lấy phân loại bạn dùng lần gần nhất |
+| `name` | Tên khoản mục, 1–100 ký tự, ví dụ "Ăn uống" |
+| `default_category` | Phân loại **gợi ý** điền sẵn khi chọn khoản mục. `null` = tự động lấy phân loại bạn dùng lần gần nhất. Giao dịch vẫn tự chọn phân loại riêng |
+| `archived_at` | Có giá trị = khoản mục đã **ẩn**: không hiện khi nhập mới nhưng giao dịch cũ vẫn giữ nguyên |
 
-Ràng buộc `unique (user_id, kind, name)`: không có hai khoản mục trùng tên trong cùng một loại.
+- Hai khoản mục cùng loại không được trùng tên, **không phân biệt hoa/thường và khoảng trắng** (chỉ mục `items_user_kind_key_idx` dùng hàm `item_key`): "Cà  phê" và "cà phê" là một. Dấu vẫn phân biệt.
+- Xoá một khoản mục chưa có giao dịch: xoá hẳn. Đã có giao dịch (hoặc khoản định kỳ) trỏ tới thì database từ chối xoá; app chuyển thành **ẩn** (`archived_at`), và có nút "Hiện lại" trong Cài đặt.
+- **Khoản mục mẫu**: tài khoản mới đăng ký được tạo sẵn 16 khoản mục (Ăn uống, Đi chợ, Xăng xe, Tiền nhà, Điện nước, Internet/Điện thoại, Cà phê, Mua sắm, Giải trí, Sức khoẻ, Sửa chữa, Tiết kiệm, Đầu tư, Lương, Làm thêm, Thưởng, mỗi cái kèm phân loại gợi ý) bằng trigger `seed_items_on_signup`. Bạn đổi tên, xoá hoặc thêm tuỳ ý. Danh sách nằm ở hàm `seed_default_items` trong `schema.sql`.
 
 ### 5.4 `item_usage` — view thống kê (không phải bảng)
 
-**View** là một câu truy vấn được đặt tên, dùng như bảng nhưng không tự lưu dữ liệu. `item_usage` gom `transactions` theo khoản mục và cho biết:
+**View** là một câu truy vấn được đặt tên, dùng như bảng nhưng không tự lưu dữ liệu. `item_usage` cho **mỗi khoản mục một dòng** (kể cả khoản chưa dùng lần nào):
 
 | Cột | Ý nghĩa |
 |---|---|
-| `uses` | Số lần đã dùng |
-| `last_used_on` | Ngày dùng gần nhất |
-| `last_category` | Phân loại ở lần dùng gần nhất |
+| `item_id`, `kind`, `item` | Khoản mục, loại và tên |
+| `uses` | Số giao dịch đã dùng khoản mục này |
+| `last_used_on` | Ngày dùng gần nhất (`null` nếu chưa dùng) |
+| `last_category` | Phân loại ở lần dùng gần nhất (`null` nếu chưa dùng) |
 
 Form nhập giao dịch dùng nó để xếp khoản mục hay dùng lên đầu và tự điền phân loại. View được tạo với `security_invoker`, nghĩa là chạy bằng quyền của người gọi nên vẫn tuân theo quy tắc bảo mật ở mục 7.
 
@@ -268,7 +276,7 @@ Mỗi dòng là một khoản lặp lại hằng tháng: tiền nhà, điện n�
 
 | Cột | Ý nghĩa |
 |---|---|
-| `kind`, `item`, `category`, `amount`, `note` | Giống `transactions` (cùng ràng buộc: số tiền > 0, phân loại khớp loại) |
+| `kind`, `item_id`, `category`, `amount`, `note` | Giống `transactions` (cùng ràng buộc: số tiền > 0, phân loại khớp loại, khoản mục cùng chủ và cùng loại) |
 | `day_of_month` | Ngày trong tháng, 1–31. Tháng ngắn hơn thì rơi vào **ngày cuối tháng** (31 → 30/4, 28 hoặc 29/2) |
 | `active` | `false` = tạm dừng, không gợi ý nữa nhưng không xoá |
 
@@ -321,12 +329,17 @@ Tương ứng file Excel *Theo dõi mục tiêu tài chính*: mỗi quỹ một 
 
 **`set_updated_at()` + 2 trigger** — Trước mỗi lần sửa một dòng ở `transactions` hoặc `budgets`, trigger tự gán `updated_at = now()`. Bạn không cần tự cập nhật cột này.
 
-**`rename_item(kind, tên cũ, tên mới, đổi cả giao dịch?)`** — Đổi tên khoản mục. Làm trong một lần (một câu lệnh gọi, nên thành công cả hoặc thất bại cả):
-1. Nếu tên mới **chưa** có trong danh mục: đổi tên ngay trong `items`.
-2. Nếu tên mới **đã có**: xoá khoản mục cũ khỏi `items` (gộp hai khoản mục làm một).
-3. Nếu bạn tick "đổi tên cả các giao dịch đã ghi": cập nhật cột `item` của các giao dịch cũ sang tên mới.
+**`rename_item(khoản mục, tên mới)`** — Đổi tên khoản mục. Làm trong một lần (một câu lệnh gọi, nên thành công cả hoặc thất bại cả):
+1. Nếu tên mới **chưa** có trong danh mục (cùng loại thu/chi): đổi tên ngay trong `items`. Giao dịch gắn theo `item_id` nên tự hiện tên mới.
+2. Nếu tên mới **trùng** một khoản mục khác (không phân biệt hoa/thường, khoảng trắng): **gộp**. Mọi giao dịch và khoản định kỳ của khoản mục này chuyển sang khoản mục kia, rồi khoản mục này bị xoá. Trả về id khoản mục còn lại.
 
 Hàm chạy với quyền người gọi (`security invoker`), chỉ người đã đăng nhập mới gọi được và chỉ tác động lên dữ liệu của chính họ.
+
+**`item_key(tên)`** — Khoá so khớp tên khoản mục: cắt và gộp khoảng trắng, chuẩn hoá Unicode, chữ thường. Dùng cho chỉ mục chống trùng tên; bản TypeScript tương ứng là `itemKey` trong [`lib/items.ts`](../lib/items.ts), hai bản phải khớp nhau.
+
+**`seed_default_items(user)` + trigger `seed_items_on_signup`** — Tạo khoản mục mẫu cho tài khoản mới ngay khi đăng ký (`on conflict do nothing` nên chạy lại không trùng). Lỗi khi tạo mẫu không chặn việc đăng ký. Chỉ hệ thống gọi được, người dùng thường không.
+
+**`spend_from_goal(quỹ, số tiền, khoản mục, phân loại, ngày, ghi chú)`** — Chi tiêu từ quỹ: tạo giao dịch chi (đánh dấu `from_savings`) gắn với khoản mục chi đã chọn, và trừ tiền khỏi quỹ, trong một lần.
 
 **`confirm_recurring(mẫu, năm, tháng, số tiền, ngày)`** — Xác nhận khoản định kỳ của một tháng: tạo giao dịch và ghi `recurring_runs` trong **một** lần (thành công cả hoặc thất bại cả). Bấm hai lần hoặc xác nhận từ hai thiết bị thì lần sau bị từ chối, không tạo giao dịch trùng. Tháng đã "bỏ qua" vẫn xác nhận lại được. Cũng chạy với quyền người gọi.
 
@@ -367,7 +380,8 @@ Ngoài database, mỗi Server Action trong ứng dụng cũng **tự kiểm tra 
 |---|---|
 | `transactions.ts` | `saveTransaction` (thêm hoặc sửa; trả về `id` để "Hoàn tác"), `deleteTransaction` |
 | `budgets.ts` | `saveBudgetMonth` (upsert, có tuỳ chọn áp dụng các tháng sau) |
-| `items.ts` | `createItem`, `updateItem` (gọi `rename_item` khi đổi tên), `deleteItem` |
+| `items.ts` | `createItem` (trả về `id` để form chọn ngay), `updateItem` (gọi `rename_item` khi đổi tên, trùng tên thì gộp), `deleteItem` (đã có giao dịch thì ẩn), `restoreItem` |
+| `import.ts` | `importTransactions` (khớp tên khoản mục trong file với danh mục, chưa có thì tạo), `undoImport` |
 | `day-marks.ts` | `markNoSpend`, `unmarkNoSpend` |
 | `auth.ts` | `signIn`, `signOut`, `changePassword` |
 
@@ -408,11 +422,12 @@ order by tong desc;
 
 **Top khoản mục chi cả năm** (giống "Top khoản chi chi tiết"):
 ```sql
-select item, sum(amount) as tong, count(*) as so_lan
-from public.transactions
-where kind = 'expense' and category <> 'saving'
-  and occurred_on >= '2026-01-01' and occurred_on < '2027-01-01'
-group by item
+select i.name as khoan_muc, sum(t.amount) as tong, count(*) as so_lan
+from public.transactions t
+join public.items i on i.id = t.item_id
+where t.kind = 'expense' and t.category <> 'saving'
+  and t.occurred_on >= '2026-01-01' and t.occurred_on < '2027-01-01'
+group by i.name
 order by tong desc;
 ```
 
@@ -435,9 +450,10 @@ order by b.category;
 
 **20 giao dịch mới nhất**:
 ```sql
-select occurred_on, kind, item, category, amount, note
-from public.transactions
-order by occurred_on desc, created_at desc
+select t.occurred_on, t.kind, i.name as khoan_muc, t.category, t.amount, t.note
+from public.transactions t
+join public.items i on i.id = t.item_id
+order by t.occurred_on desc, t.created_at desc
 limit 20;
 ```
 
@@ -487,6 +503,17 @@ order by ngay;
 
 Thêm một phân loại mới (ví dụ chi tiêu "Từ thiện") phải sửa cả: các ràng buộc `check` trong `schema.sql`, danh sách ở [`lib/finance.ts`](../lib/finance.ts), nhãn/màu ở [`lib/categories.ts`](../lib/categories.ts), và các bảng ngân sách. Đây là thay đổi lớn, nên nhờ hỗ trợ khi làm.
 
+### Nâng cấp lên bản "mỗi giao dịch thuộc một khoản mục"
+
+Bản cũ lưu tên khoản mục dạng chữ trong từng giao dịch (cột `item`). Bản mới thay bằng `item_id`. **Chạy lại toàn bộ `supabase/schema.sql` trong SQL Editor** là đủ, không cần nhập lại dữ liệu:
+
+1. Mỗi tên khoản mục đã dùng trong giao dịch và khoản định kỳ mà chưa có trong danh mục được tạo thành khoản mục mới. Tên chỉ khác hoa/thường hoặc khoảng trắng được **gộp làm một** ("Cà phê", "cà phê", "CÀ PHÊ" thành một khoản mục), kiểu viết nào dùng nhiều nhất thì giữ.
+2. Mỗi giao dịch và khoản định kỳ được gắn `item_id`, rồi cột `item` cũ bị bỏ. Số giao dịch và tổng tiền giữ nguyên.
+3. Tài khoản chưa có khoản mục nào được tạo khoản mục mẫu. Tài khoản đã có khoản mục thì giữ nguyên danh mục của mình.
+4. Bước chuyển chỉ chạy một lần; chạy lại `schema.sql` sau đó là vô hại.
+
+Lưu ý thứ tự: ngay sau khi chạy `schema.sql`, **bản app cũ sẽ lỗi** (nó vẫn ghi cột `item` đã bị bỏ) và **bản app mới cần schema mới** (nó đọc `item_id`). Hãy chạy schema rồi triển khai app mới liền sau đó, và nên **xuất CSV sao lưu trước** (Thu chi → Xuất CSV). Nếu cần làm lại từ đầu, file CSV đó nhập lại được qua **Thu chi → Nhập CSV**, khoản mục tự được tạo theo tên.
+
 ## 11. Lưu ý và giới hạn
 
 - **Sao lưu**: hãy tự xuất dữ liệu định kỳ. Cách đơn giản nhất là trang **Thu chi → Xuất CSV** (mở được bằng Excel), hoặc **Table Editor** của Supabase → bảng → Export. Kiểm tra mục **Database → Backups** trên dashboard để biết gói của bạn có tự sao lưu hay không; đừng giả định là có.
@@ -505,6 +532,8 @@ Thêm một phân loại mới (ví dụ chi tiêu "Từ thiện") phải sửa 
 | Chạy `seed.local.sql` báo "Cần đúng 1 tài khoản" | Chưa tạo tài khoản, hoặc có từ 2 tài khoản trở lên | Tạo/xoá cho còn đúng 1 tài khoản |
 | Lưu giao dịch lỗi `permission denied` hoặc `row-level security` | Chưa đăng nhập, hoặc `user_id` không phải của bạn | Đăng nhập lại; không tự ghi `user_id` khác |
 | Lỗi `violates check constraint` | Số tiền ≤ 0, phân loại không khớp loại thu/chi, ngày hoặc ghi chú vượt giới hạn | Sửa dữ liệu theo mục 5 |
-| Lỗi `duplicate key` khi thêm khoản mục | Khoản mục cùng tên đã có | Dùng tên khác, hoặc sửa khoản mục cũ |
+| Lỗi `duplicate key` khi thêm khoản mục | Khoản mục cùng tên đã có (không phân biệt hoa/thường), có thể đang bị ẩn | Chọn khoản mục đó trong danh sách; nếu đã ẩn, bấm "Dùng lại" hoặc "Hiện lại" trong Cài đặt |
+| Lỗi `violates foreign key constraint` khi lưu giao dịch | Khoản mục đã bị xoá, hoặc khác loại thu/chi với giao dịch | Chọn lại khoản mục trong danh sách |
+| Mọi trang báo "Không tải được giao dịch… item_id" | App mới chạy trên database chưa chạy `schema.sql` mới | Chạy lại toàn bộ `schema.sql` (xem mục 10) |
 | Không thấy nút "Không chi tiêu" | Chưa chạy lại `schema.sql` nên bảng `day_marks` chưa có | Chạy lại toàn bộ `schema.sql` |
 | Sau khi đổi schema, app lỗi kiểu dữ liệu | `database.types.ts` chưa cập nhật | Sửa file theo mục 10 |

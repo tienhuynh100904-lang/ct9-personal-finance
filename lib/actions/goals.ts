@@ -8,7 +8,7 @@ import { goalProgress } from '../goals'
 import { formatVND } from '../format'
 import { isMissingColumn, isMissingTable } from '../supabase/errors'
 import { budgetCrossing, clearNoSpendMark } from '../transaction-effects'
-import { MAX_AMOUNT, MAX_ITEM_LENGTH, MAX_NOTE_LENGTH, validateGoal, type FieldErrors, type GoalInput } from '../validation'
+import { MAX_AMOUNT, MAX_NOTE_LENGTH, validateGoal, type FieldErrors, type GoalInput } from '../validation'
 import { isUuid, type ActionResult } from './result'
 
 const MISSING_TABLE_MESSAGE = 'Chưa bật tính năng mục tiêu. Hãy chạy lại supabase/schema.sql trong Supabase.'
@@ -143,7 +143,8 @@ export async function deleteAllocation(id: string): Promise<ActionResult> {
 export type SpendInput = {
   goalId: string
   amount: number
-  item: string
+  /** An expense item of the user's list. */
+  itemId: string
   category: SpendingCategory
   date: string
   note?: string
@@ -162,9 +163,8 @@ export async function spendFromGoal(
   if (!isUuid(goalId)) return { ok: false, error: 'Quỹ không hợp lệ.' }
   const amount = input?.amount
   if (typeof amount !== 'number' || !Number.isInteger(amount) || amount <= 0 || amount > MAX_AMOUNT) return { ok: false, error: 'Nhập số tiền lớn hơn 0.' }
-  const item = typeof input?.item === 'string' ? input.item.trim().replace(/\s+/g, ' ') : ''
-  if (!item) return { ok: false, error: 'Nhập khoản mục đã chi.' }
-  if (item.length > MAX_ITEM_LENGTH) return { ok: false, error: `Khoản mục tối đa ${MAX_ITEM_LENGTH} ký tự.` }
+  const itemId = input?.itemId
+  if (!isUuid(itemId)) return { ok: false, error: 'Chọn khoản mục đã chi.' }
   const category = input?.category
   if (!(SPENDING_CATEGORIES as readonly string[]).includes(category)) return { ok: false, error: 'Chọn phân loại chi tiêu.' }
   const date = typeof input?.date === 'string' ? input.date : ''
@@ -189,12 +189,15 @@ export async function spendFromGoal(
   const { data: transactionId, error } = await supabase.rpc('spend_from_goal', {
     p_goal_id: goalId,
     p_amount: amount,
-    p_item: item,
+    p_item_id: itemId,
     p_category: category,
     p_occurred_on: date,
     p_note: note || null,
   })
-  if (error) return failure(error, 'spendFromGoal', 'Không chi được. Vui lòng thử lại.')
+  if (error) {
+    if (error.message.includes('item_not_found')) return { ok: false, error: 'Khoản mục không còn trong danh mục. Hãy chọn lại.' }
+    return failure(error, 'spendFromGoal', 'Không chi được. Vui lòng thử lại.')
+  }
 
   const [clearedMark, budgetAlert] = await Promise.all([
     clearNoSpendMark(supabase, date),

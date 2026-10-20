@@ -28,7 +28,7 @@ export function QuickLog({ presets }: { presets: Preset[] }) {
               onClick={() =>
                 openComposer({
                   kind: 'expense',
-                  preset: { item: preset.item, category: preset.category, amount: preset.amount },
+                  preset: { item_id: preset.item_id, category: preset.category, amount: preset.amount },
                 })
               }
               aria-label={`Ghi ${preset.item}, ${formatVND(preset.amount)}, ${CATEGORY_META[preset.category].label}`}

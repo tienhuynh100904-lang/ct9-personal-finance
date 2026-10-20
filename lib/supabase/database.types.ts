@@ -15,7 +15,7 @@ export type Database = {
           id: string
           user_id: string
           kind: Kind
-          item: string
+          item_id: string
           category: Category
           amount: number
           occurred_on: string
@@ -28,7 +28,7 @@ export type Database = {
           id?: string
           user_id?: string
           kind: Kind
-          item: string
+          item_id: string
           category: Category
           amount: number
           occurred_on: string
@@ -41,7 +41,7 @@ export type Database = {
           id?: string
           user_id?: string
           kind?: Kind
-          item?: string
+          item_id?: string
           category?: Category
           amount?: number
           occurred_on?: string
@@ -85,6 +85,7 @@ export type Database = {
           kind: Kind
           name: string
           default_category: Category | null
+          archived_at: string | null
           created_at: string
         }
         Insert: {
@@ -93,6 +94,7 @@ export type Database = {
           kind: Kind
           name: string
           default_category?: Category | null
+          archived_at?: string | null
           created_at?: string
         }
         Update: {
@@ -101,6 +103,7 @@ export type Database = {
           kind?: Kind
           name?: string
           default_category?: Category | null
+          archived_at?: string | null
           created_at?: string
         }
         Relationships: []
@@ -188,7 +191,7 @@ export type Database = {
           id: string
           user_id: string
           kind: Kind
-          item: string
+          item_id: string
           category: Category
           amount: number
           day_of_month: number
@@ -201,7 +204,7 @@ export type Database = {
           id?: string
           user_id?: string
           kind: Kind
-          item: string
+          item_id: string
           category: Category
           amount: number
           day_of_month: number
@@ -214,7 +217,7 @@ export type Database = {
           id?: string
           user_id?: string
           kind?: Kind
-          item?: string
+          item_id?: string
           category?: Category
           amount?: number
           day_of_month?: number
@@ -349,11 +352,12 @@ export type Database = {
       item_usage: {
         Row: {
           user_id: string
+          item_id: string
           kind: Kind
           item: string
           uses: number
-          last_used_on: string
-          last_category: Category
+          last_used_on: string | null
+          last_category: Category | null
         }
         Relationships: []
       }
@@ -369,12 +373,10 @@ export type Database = {
     Functions: {
       rename_item: {
         Args: {
-          p_kind: string
-          p_old_name: string
+          p_item_id: string
           p_new_name: string
-          p_update_transactions?: boolean
         }
-        Returns: undefined
+        Returns: string
       }
       confirm_recurring: {
         Args: {
@@ -398,7 +400,7 @@ export type Database = {
         Args: {
           p_goal_id: string
           p_amount: number
-          p_item: string
+          p_item_id: string
           p_category: string
           p_occurred_on: string
           p_note?: string | null

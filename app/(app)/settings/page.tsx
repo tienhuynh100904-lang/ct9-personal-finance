@@ -80,7 +80,8 @@ async function Recurring() {
       </Card>
     )
   }
-  return <RecurringManager rules={data.rules} />
+  const [items, usage] = await Promise.all([getItems(), getItemUsage()])
+  return <RecurringManager rules={data.rules} items={items} usage={usage} />
 }
 
 async function Items() {

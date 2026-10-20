@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowDownLeft, ArrowUpRight, CircleAlert, CircleCheck, FileSpreadsheet, LoaderCircle, Upload } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, CircleAlert, CircleCheck, FileSpreadsheet, ListPlus, LoaderCircle, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/choice'
@@ -15,7 +15,7 @@ import { formatDate, formatVND } from '@/lib/format'
 import { runAction } from '@/lib/run-action'
 import { afterDialogClose, toast } from '@/lib/toast'
 import type { TransactionRecord } from '@/lib/types'
-import { validateTransaction } from '@/lib/validation'
+import { validateImportRow } from '@/lib/validation'
 
 const MAX_FILE_BYTES = 1_000_000
 
@@ -32,7 +32,7 @@ const SAMPLE: Record<Kind, Pick<TransactionRecord, 'item' | 'category' | 'amount
 }
 
 function downloadSample(kind: Kind) {
-  const rows = SAMPLE[kind].map((r, i) => ({ id: String(i), kind, created_at: '', ...r }))
+  const rows = SAMPLE[kind].map((r, i) => ({ id: String(i), item_id: '', kind, created_at: '', ...r }))
   const url = URL.createObjectURL(new Blob([buildTransactionsCsv(rows, kind)], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
   link.href = url
@@ -54,7 +54,7 @@ function check(candidate: ImportCandidate, kind: Kind): Checked {
   if (!isCategoryOf(kind, category)) {
     return { line: candidate.line, error: `Phân loại “${label}” không dùng cho ${KIND_LABEL[kind].toLowerCase()}.` }
   }
-  const parsed = validateTransaction({ kind, item: candidate.item, category, amount, occurred_on, note: candidate.note })
+  const parsed = validateImportRow({ kind, item: candidate.item, category, amount, occurred_on, note: candidate.note })
   if (!parsed.ok) return { line: candidate.line, error: Object.values(parsed.fieldErrors)[0] ?? 'Dòng không hợp lệ.' }
   return { line: candidate.line, row: parsed.value }
 }
@@ -83,6 +83,8 @@ function ImportFlow({ onDone }: { onDone: () => void }) {
   const [parsed, setParsed] = useState<ParsedCsv | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const [duplicates, setDuplicates] = useState<Set<number> | null>(null)
+  /** Item names in the file that are not in the list yet: the import creates them. */
+  const [newItems, setNewItems] = useState<string[]>([])
   const [pending, startTransition] = useTransition()
 
   // An exported file names its kind in the date column; if that disagrees with the tab, say so
@@ -100,11 +102,13 @@ function ImportFlow({ onDone }: { onDone: () => void }) {
     void runAction(() => importTransactions({ rows: valid, dryRun: true })).then((result) => {
       if (stale || !result) return
       setDuplicates(result.ok ? new Set(result.duplicates ?? []) : new Set())
+      setNewItems(result.ok ? (result.newItems ?? []) : [])
       if (!result.ok) toast.error(result.error)
     })
     return () => {
       stale = true
       setDuplicates(null)
+      setNewItems([])
     }
   }, [valid])
 
@@ -151,7 +155,13 @@ function ImportFlow({ onDone }: { onDone: () => void }) {
       onDone()
       afterDialogClose(() =>
         toast.success(`Đã nhập ${result.inserted ?? 0} ${KIND_LABEL[kind].toLowerCase()}`, {
-          description: skipped > 0 ? `${skipped} dòng trùng với dữ liệu sẵn có đã được bỏ qua.` : undefined,
+          description:
+            [
+              (result.newItems?.length ?? 0) > 0 ? `Đã tạo ${result.newItems?.length} khoản mục mới.` : '',
+              skipped > 0 ? `${skipped} dòng trùng với dữ liệu sẵn có đã được bỏ qua.` : '',
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined,
           action:
             ids.length > 0
               ? {
@@ -235,6 +245,7 @@ function ImportFlow({ onDone }: { onDone: () => void }) {
                 </li>
                 <li>Ngày dạng 2026-10-13 hoặc 13/10/2026.</li>
                 <li>Số tiền là số nguyên, đơn vị đồng (45000 hoặc 45.000).</li>
+                <li>Tên khoản mục chưa có trong danh mục sẽ được tạo tự động khi nhập.</li>
               </ul>
               <p className="mt-2">
                 <button type="button" onClick={() => downloadSample(kind)} className="font-medium text-brand-ink underline-offset-2 hover:underline">
@@ -281,6 +292,17 @@ function ImportFlow({ onDone }: { onDone: () => void }) {
                     <strong className="font-semibold text-ink">{KIND_LABEL[kind]}</strong> · tổng{' '}
                     <strong className="font-semibold text-ink tabular-nums">{formatVND(total)}</strong>
                     {dates.length > 0 ? ` · từ ${formatDate(dates[0])} đến ${formatDate(dates.at(-1)!)}` : ''}
+                  </p>
+                ) : null}
+
+                {newItems.length > 0 ? (
+                  <p className="flex items-start gap-2 rounded-xl bg-surface-2 px-3 py-2.5 text-sm text-ink-2">
+                    <ListPlus className="mt-0.5 size-4 shrink-0 text-brand-ink" aria-hidden />
+                    <span>
+                      Sẽ tạo <strong className="font-semibold text-ink">{newItems.length} khoản mục mới</strong> trong danh mục:{' '}
+                      {newItems.slice(0, 8).join(', ')}
+                      {newItems.length > 8 ? ` và ${newItems.length - 8} khoản khác` : ''}.
+                    </span>
                   </p>
                 ) : null}
 

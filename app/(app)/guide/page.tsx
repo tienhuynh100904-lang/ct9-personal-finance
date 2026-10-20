@@ -138,11 +138,11 @@ export default function GuidePage() {
               Nhập <strong>số tiền</strong>. Nút <strong>000</strong> thêm ba số 0, gõ “50” rồi bấm 000 là 50.000 ₫.
             </>,
             <>
-              Chọn <strong>khoản mục</strong> trong các gợi ý (khoản hay dùng nằm đầu) hoặc gõ tên mới. Gợi ý lọc theo chữ bạn gõ, không cần
-              gõ dấu.
+              Chọn <strong>khoản mục</strong> trong danh sách (khoản hay dùng nằm đầu). Gõ để tìm, không cần gõ dấu. Khoản chưa có thì gõ tên rồi
+              bấm <strong>Tạo “…”</strong>: khoản mục mới được thêm vào danh mục ngay. Mỗi giao dịch thuộc đúng một khoản mục.
             </>,
             <>
-              <strong>Phân loại</strong> tự điền theo lần ghi trước của khoản mục đó. Chọn lại nếu cần.
+              <strong>Phân loại</strong> (Thiết yếu, Không thiết yếu…) tự điền theo khoản mục, lấy từ phân loại mặc định hoặc lần ghi trước. Chọn lại nếu cần, vì phân loại là của từng giao dịch.
             </>,
             <>
               Chọn ngày: <strong>Hôm nay</strong>, <strong>Hôm qua</strong> hoặc <strong>Ngày khác</strong> (mở lịch). Thêm ghi chú nếu muốn,
@@ -340,7 +340,7 @@ export default function GuidePage() {
               <strong>Thu nhập</strong> theo loại giao dịch trong file (mỗi file một loại), rồi chọn file. File cần 5 cột{' '}
               <strong>Tên khoản mục, Ngày chi (hoặc Ngày nhận), Phân loại, Số tiền, Ghi chú</strong>, như file bạn xuất từ app. Tab nào thì hộp thoại hiện đúng tiêu đề,
               danh sách phân loại và file mẫu của loại đó. Nếu file thuộc loại khác với tab đang chọn, app báo và cho chuyển tab bằng một lần bấm. App cho xem trước, báo dòng
-              lỗi, bỏ qua dòng đã có sẵn (nhập hai lần không bị trùng) và có nút Hoàn tác sau khi nhập.
+              lỗi, bỏ qua dòng đã có sẵn (nhập hai lần không bị trùng) và có nút Hoàn tác sau khi nhập. Tên khoản mục chưa có trong danh mục sẽ được tạo tự động, và phần xem trước cho biết sẽ tạo những khoản nào.
             </>,
           ]}
         />
@@ -418,8 +418,9 @@ export default function GuidePage() {
               <strong>Giao dịch định kỳ</strong>: bấm <strong>Thêm</strong> hoặc biểu tượng bút chì ở từng dòng để thêm, sửa trong hộp thoại; công tắc để tạm dừng; thùng rác để xoá.
             </>,
             <>
-              <strong>Danh mục khoản mục</strong>: các gợi ý khi ghi. Đặt phân loại mặc định, đổi tên (có thể đổi luôn tên trong các giao dịch
-              cũ) hoặc xoá. Xoá khỏi danh mục không xoá giao dịch đã ghi.
+              <strong>Danh mục khoản mục</strong>: danh sách khoản mục của bạn, mỗi giao dịch thuộc một khoản mục. Đặt phân loại mặc định (chỉ để gợi ý),
+              đổi tên (giao dịch cũ đổi theo; đổi thành tên đã có thì hai khoản được gộp làm một) hoặc xoá. Khoản mục đã có giao dịch thì không xoá hẳn
+              mà được ẩn: giao dịch cũ vẫn giữ nguyên và bạn bấm Hiện lại khi cần.
             </>,
             <>
               Nút <strong>Đổi mật khẩu</strong> (mở hộp thoại nhập mật khẩu hiện tại và mật khẩu mới) và nút <strong>Đăng xuất</strong>.

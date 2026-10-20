@@ -33,6 +33,7 @@ export function TransactionRow({
             transaction: {
               id: t.id,
               kind: t.kind,
+              item_id: t.item_id,
               item: t.item,
               category: t.category,
               amount: t.amount,

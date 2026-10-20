@@ -38,6 +38,9 @@ export async function saveRecurring(input: RecurringInput): Promise<ActionResult
         .from('recurring_transactions')
         .insert({ ...parsed.value, user_id: user.id })
         .select('id')
+  if (error?.code === '23503') {
+    return { ok: false, error: 'Khoản mục không còn trong danh mục. Hãy chọn lại.', fieldErrors: { item_id: 'Chọn khoản mục.' } }
+  }
   if (error) return failure(error, 'saveRecurring', 'Không lưu được khoản định kỳ. Vui lòng thử lại.')
   if (!data.length) return { ok: false, error: 'Không tìm thấy khoản định kỳ cần sửa.' }
 
@@ -159,7 +162,7 @@ export async function createRecurringFromTransaction(transactionId: string): Pro
 
   const { data: t, error: readError } = await supabase
     .from('transactions')
-    .select('kind, item, category, amount, occurred_on, note')
+    .select('kind, item_id, category, amount, occurred_on, note')
     .eq('id', transactionId)
     .maybeSingle()
   if (readError) return failure(readError, 'createRecurringFromTransaction (read)', 'Không tạo được khoản định kỳ.')
@@ -170,7 +173,7 @@ export async function createRecurringFromTransaction(transactionId: string): Pro
     .insert({
       user_id: user.id,
       kind: t.kind,
-      item: t.item,
+      item_id: t.item_id,
       category: t.category,
       amount: t.amount,
       day_of_month: Number(t.occurred_on.slice(8, 10)),

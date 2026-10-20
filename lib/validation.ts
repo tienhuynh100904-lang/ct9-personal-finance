@@ -1,15 +1,18 @@
+import { isUuid } from './actions/result'
 import { isValidISODate } from './dates'
 import { BUDGET_CATEGORIES, isCategoryOf, type BudgetCategory, type Category, type Kind } from './finance'
 import { MAX_GOAL_RATE_BP, type GoalKind, type GoalPlace } from './goals'
+import { cleanItemName } from './items'
 
 export const MAX_AMOUNT = 999_999_999_999
 export const MAX_ITEM_LENGTH = 100
 export const MAX_NOTE_LENGTH = 500
 
+/** `item_id`: every transaction belongs to one item of the user's "Danh mục khoản mục". */
 export type TransactionInput = {
   id?: string
   kind: Kind
-  item: string
+  item_id: string
   category: Category
   amount: number
   occurred_on: string
@@ -30,17 +33,12 @@ function isAmount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= MAX_AMOUNT
 }
 
-/** Runs on the client for instant feedback and again on the server, where it is authoritative. */
-export function validateTransaction(input: unknown): Validated<TransactionValues, FieldErrors<TransactionInput>> {
-  const raw = (input ?? {}) as Record<string, unknown>
-  const errors: FieldErrors<TransactionInput> = {}
+type TransactionBody = { kind: Kind; category: Category; amount: number; occurred_on: string; note: string | null }
 
+/** What a transaction has besides its item: kind, category, amount, day and note. Records problems in `errors`. */
+function checkTransactionBody(raw: Record<string, unknown>, errors: Record<string, string>): TransactionBody {
   const kind = raw.kind
   if (!isKind(kind)) errors.kind = 'Chọn loại giao dịch.'
-
-  const item = typeof raw.item === 'string' ? raw.item.trim().replace(/\s+/g, ' ') : ''
-  if (!item) errors.item = 'Nhập tên khoản mục.'
-  else if (item.length > MAX_ITEM_LENGTH) errors.item = `Tối đa ${MAX_ITEM_LENGTH} ký tự.`
 
   const category = typeof raw.category === 'string' ? raw.category : ''
   if (isKind(kind) && !isCategoryOf(kind, category)) errors.category = 'Chọn phân loại.'
@@ -53,24 +51,42 @@ export function validateTransaction(input: unknown): Validated<TransactionValues
   const note = typeof raw.note === 'string' ? raw.note.trim() : ''
   if (note.length > MAX_NOTE_LENGTH) errors.note = `Tối đa ${MAX_NOTE_LENGTH} ký tự.`
 
+  return { kind: kind as Kind, category: category as Category, amount: raw.amount as number, occurred_on: date, note: note || null }
+}
+
+/** Runs on the client for instant feedback and again on the server, where it is authoritative. */
+export function validateTransaction(input: unknown): Validated<TransactionValues, FieldErrors<TransactionInput>> {
+  const raw = (input ?? {}) as Record<string, unknown>
+  const errors: FieldErrors<TransactionInput> = {}
+
+  const body = checkTransactionBody(raw, errors)
+  if (!isUuid(raw.item_id)) errors.item_id = 'Chọn khoản mục.'
+
   if (Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors }
-  return {
-    ok: true,
-    value: {
-      kind: kind as Kind,
-      item,
-      category: category as Category,
-      amount: raw.amount as number,
-      occurred_on: date,
-      note: note || null,
-    },
-  }
+  return { ok: true, value: { kind: body.kind, item_id: raw.item_id as string, category: body.category, amount: body.amount, occurred_on: body.occurred_on, note: body.note } }
+}
+
+/** A transaction as a CSV row describes it: the item is a name, found or created when the file is imported. */
+export type ImportRowInput = Omit<TransactionInput, 'id' | 'item_id'> & { item: string }
+export type ImportRowValues = Omit<ImportRowInput, 'note'> & { note: string | null }
+
+export function validateImportRow(input: unknown): Validated<ImportRowValues, FieldErrors<ImportRowInput>> {
+  const raw = (input ?? {}) as Record<string, unknown>
+  const errors: FieldErrors<ImportRowInput> = {}
+
+  const body = checkTransactionBody(raw, errors)
+  const item = typeof raw.item === 'string' ? cleanItemName(raw.item) : ''
+  if (!item) errors.item = 'Nhập tên khoản mục.'
+  else if (item.length > MAX_ITEM_LENGTH) errors.item = `Tối đa ${MAX_ITEM_LENGTH} ký tự.`
+
+  if (Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors }
+  return { ok: true, value: { kind: body.kind, item, category: body.category, amount: body.amount, occurred_on: body.occurred_on, note: body.note } }
 }
 
 export type RecurringInput = {
   id?: string
   kind: Kind
-  item: string
+  item_id: string
   category: Category
   amount: number
   /** 1–31; past the end of a short month it falls on the last day. */
@@ -92,8 +108,8 @@ export function validateRecurring(input: unknown): Validated<RecurringValues, Fi
   if (typeof day !== 'number' || !Number.isInteger(day) || day < 1 || day > 31) errors.day_of_month = 'Chọn ngày trong tháng (1–31).'
 
   if (!base.ok || Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors }
-  const { kind, item, category, amount, note } = base.value
-  return { ok: true, value: { kind, item, category, amount, note, day_of_month: day as number } }
+  const { kind, item_id, category, amount, note } = base.value
+  return { ok: true, value: { kind, item_id, category, amount, note, day_of_month: day as number } }
 }
 
 export type ItemInput = { kind: Kind; name: string; default_category: Category | null }
@@ -103,7 +119,7 @@ export function validateItem(input: unknown): Validated<ItemInput> {
   const errors: FieldErrors<ItemInput> = {}
   const kind = raw.kind
   if (!isKind(kind)) errors.kind = 'Chọn loại khoản mục.'
-  const name = typeof raw.name === 'string' ? raw.name.trim().replace(/\s+/g, ' ') : ''
+  const name = typeof raw.name === 'string' ? cleanItemName(raw.name) : ''
   if (!name) errors.name = 'Nhập tên khoản mục.'
   else if (name.length > MAX_ITEM_LENGTH) errors.name = `Tối đa ${MAX_ITEM_LENGTH} ký tự.`
   const category = raw.default_category

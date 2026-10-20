@@ -1,14 +1,14 @@
 'use client'
 
 import { ArrowDownLeft, ArrowUpRight, LoaderCircle, Plus, Repeat, Trash2 } from 'lucide-react'
-import { useId, useMemo, useRef, useState, useTransition } from 'react'
+import { useId, useRef, useState, useTransition } from 'react'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ChoiceChips, Segmented } from '@/components/ui/choice'
 import { DialogBody, DialogFooter } from '@/components/ui/dialog'
 import { Calendar } from '@/components/ui/calendar'
-import { Field, FieldError, Input, Textarea } from '@/components/ui/field'
+import { Field, FieldError, Textarea } from '@/components/ui/field'
 import { toast } from '@/lib/toast'
 import { markNoSpend } from '@/lib/actions/day-marks'
 import { createRecurringFromTransaction, deleteRecurring } from '@/lib/actions/recurring'
@@ -16,16 +16,15 @@ import { deleteTransaction, saveTransaction } from '@/lib/actions/transactions'
 import { showBudgetAlert } from '@/lib/budget-alert-toast'
 import { longDateLabel } from '@/lib/calendar'
 import { CATEGORY_META } from '@/lib/categories'
-import { cn } from '@/lib/cn'
 import type { ComposerPreset, EditableTransaction } from '@/lib/composer'
 import { todayISO } from '@/lib/dates'
 import { categoriesFor, isCategoryOf, type Category, type Kind } from '@/lib/finance'
-import { formatDayMonth, formatSignedVND, formatVND, normalizeText } from '@/lib/format'
+import { formatDayMonth, formatSignedVND, formatVND } from '@/lib/format'
 import { addDays, weekdayShort } from '@/lib/habit'
 import { runAction } from '@/lib/run-action'
 import type { ItemRecord, ItemUsage } from '@/lib/types'
 import { validateTransaction, type FieldErrors, type TransactionInput } from '@/lib/validation'
-import { buildSuggestions, withStarterItems } from './suggestions'
+import { ItemPicker } from './item-picker'
 
 type DateMode = 'today' | 'yesterday' | 'other'
 
@@ -67,7 +66,16 @@ export function TransactionForm({
 
   const [kind, setKind] = useState<Kind>(initial?.kind ?? initialKind)
   const [amount, setAmount] = useState(initial?.amount ?? preset?.amount ?? 0)
-  const [item, setItem] = useState(initial?.item ?? preset?.item ?? '')
+  const [item, setItem] = useState<ItemRecord | null>(() => {
+    const id = initial?.item_id ?? preset?.item_id
+    if (!id) return null
+    const listed = items.find((i) => i.id === id)
+    if (listed) return listed
+    // An entry whose item is not in the list (just removed): keep it editable under its own name.
+    return initial ? { id, kind: initial.kind, name: initial.item, default_category: null, archived_at: null } : null
+  })
+  /** Bumped to start the item picker over (new kind, or "Lưu, thêm tiếp"). */
+  const [pickerKey, setPickerKey] = useState(0)
   const [category, setCategory] = useState<Category | null>(initial?.category ?? preset?.category ?? null)
   const [date, setDate] = useState(startDate)
   const [dateMode, setDateMode] = useState<DateMode>(initialDateMode(startDate, today))
@@ -79,40 +87,25 @@ export function TransactionForm({
   const [repeatMonthly, setRepeatMonthly] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  const suggestions = useMemo(
-    () => withStarterItems(kind, buildSuggestions(kind, items, usage)),
-    [kind, items, usage],
-  )
+  /** The picker reports a pick (or typing that names an item); the item's category is only suggested. */
+  function changeItem(next: ItemRecord | null, suggested: Category | null) {
+    setItem(next)
+    if (next && suggested && !categoryTouched.current) setCategory(suggested)
+  }
 
-  // Suggestions narrow as you type (accent-insensitive), replacing the browser's own dropdown.
-  const typed = normalizeText(item.trim())
-  const visibleSuggestions = typed ? suggestions.filter((s) => normalizeText(s.name).includes(typed)) : suggestions
-
-  function applySuggestedCategory(name: string, forKind: Kind) {
-    if (categoryTouched.current) return
-    const match = withStarterItems(forKind, buildSuggestions(forKind, items, usage)).find((s) => s.name === name.trim())
-    if (match?.category) setCategory(match.category)
+  /** After tapping an item chip the amount is what is left to type: close the keyboard, then focus it. */
+  function itemPicked() {
+    itemRef.current?.blur()
+    if (amount === 0) amountRef.current?.focus()
   }
 
   function changeKind(next: Kind) {
     setKind(next)
     categoryTouched.current = false
     setCategory(null)
-    applySuggestedCategory(item, next)
+    setItem(null)
+    setPickerKey((k) => k + 1)
     setErrors({})
-  }
-
-  function changeItem(name: string) {
-    setItem(name)
-    applySuggestedCategory(name, kind)
-  }
-
-  function pickQuick(name: string, suggested: Category | null) {
-    setItem(name)
-    if (suggested && !categoryTouched.current) setCategory(suggested)
-    // Close the keyboard if it was open for the item field; the amount is what's left to type.
-    itemRef.current?.blur()
-    if (amount === 0) amountRef.current?.focus()
   }
 
   function chooseDateMode(mode: DateMode) {
@@ -125,7 +118,7 @@ export function TransactionForm({
     const input: TransactionInput = {
       id: initial?.id,
       kind,
-      item,
+      item_id: item?.id ?? '',
       category: category as Category,
       amount,
       occurred_on: date,
@@ -133,7 +126,11 @@ export function TransactionForm({
     }
     const check = validateTransaction(input)
     if (!check.ok) {
-      setErrors(check.fieldErrors)
+      setErrors(
+        check.fieldErrors.item_id
+          ? { ...check.fieldErrors, item_id: 'Chọn khoản mục trong danh sách, hoặc bấm “Tạo …” nếu là khoản mới.' }
+          : check.fieldErrors,
+      )
       return
     }
     setErrors({})
@@ -146,7 +143,8 @@ export function TransactionForm({
         return
       }
       const signed = formatSignedVND(kind === 'income' ? amount : -amount)
-      const detail = `“${check.value.item}” · ${signed}`
+      const itemName = item?.name ?? ''
+      const detail = `“${itemName}” · ${signed}`
       const savedDay = check.value.occurred_on
       // Turning the entry into a monthly rule is a follow-up: the transaction itself is already saved.
       const makeRecurring: Promise<string | null> =
@@ -163,11 +161,12 @@ export function TransactionForm({
         toast.success('Đã lưu giao dịch', { description: detail })
         warnBudget()
         void makeRecurring.then((ruleId) => {
-          if (ruleId) toast.success('Đã đặt lặp lại hằng tháng', { description: `“${check.value.item}” · ngày ${Number(savedDay.slice(8))} mỗi tháng` })
+          if (ruleId) toast.success('Đã đặt lặp lại hằng tháng', { description: `“${itemName}” · ngày ${Number(savedDay.slice(8))} mỗi tháng` })
         })
         setRepeatMonthly(false)
         setAmount(0)
-        setItem('')
+        setItem(null)
+        setPickerKey((k) => k + 1)
         setNote('')
         setNoteOpen(false)
         setCategory(null)
@@ -302,42 +301,22 @@ export function TransactionForm({
           />
         </Field>
 
-        <Field label="Khoản mục" htmlFor={`${formId}-item`} error={errors.item}>
-          <Input
-            ref={itemRef}
+        <Field label="Khoản mục" htmlFor={`${formId}-item`} error={errors.item_id}>
+          <ItemPicker
+            key={`${kind}-${pickerKey}`}
             id={`${formId}-item`}
+            kind={kind}
+            items={items}
+            usage={usage}
             value={item}
-            onChange={(e) => changeItem(e.target.value)}
-            placeholder={kind === 'income' ? 'VD: Lương, Thưởng…' : 'VD: Ăn uống, Di chuyển…'}
-            autoComplete="off"
-            enterKeyHint="done"
-            maxLength={100}
-            aria-invalid={Boolean(errors.item)}
-            aria-describedby={errors.item ? `${formId}-item-error` : undefined}
+            onChange={changeItem}
+            onPicked={itemPicked}
+            newItemCategory={category && isCategoryOf(kind, category) ? category : null}
+            placeholder={kind === 'income' ? 'Tìm hoặc chọn: Lương, Thưởng…' : 'Tìm hoặc chọn: Ăn uống, Di chuyển…'}
+            invalid={Boolean(errors.item_id)}
+            describedBy={errors.item_id ? `${formId}-item-error` : undefined}
+            inputRef={itemRef}
           />
-          {visibleSuggestions.length > 0 ? (
-            <div
-              role="group"
-              aria-label="Khoản mục hay dùng"
-              className="mt-2 -mr-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto overscroll-contain py-0.5 pr-2"
-            >
-              {visibleSuggestions.map((s) => (
-                <button
-                  key={s.name}
-                  type="button"
-                  onClick={() => pickQuick(s.name, s.category)}
-                  className={cn(
-                    'h-10 max-w-full shrink-0 truncate rounded-full border px-3.5 text-sm transition-colors',
-                    s.name === item.trim()
-                      ? 'border-brand-edge bg-brand text-on-brand'
-                      : 'border-line-strong bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink active:bg-surface-2',
-                  )}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </Field>
 
         <div>

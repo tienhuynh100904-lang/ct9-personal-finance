@@ -6,6 +6,7 @@ import type { TransactionRecord } from '../lib/types.ts'
 const row = (over: Partial<TransactionRecord>): TransactionRecord => ({
   id: 'x',
   kind: 'expense',
+  item_id: 'item-1',
   item: 'Ăn uống',
   category: 'essential',
   amount: 45000,
