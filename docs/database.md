@@ -133,6 +133,7 @@ erDiagram
         text category
         bigint amount
         smallint day_of_month "1-31"
+        smallint remind_days "0-7"
         text note
         boolean active
     }
@@ -278,6 +279,7 @@ Mỗi dòng là một khoản lặp lại hằng tháng: tiền nhà, điện n�
 |---|---|
 | `kind`, `item_id`, `category`, `amount`, `note` | Giống `transactions` (cùng ràng buộc: số tiền > 0, phân loại khớp loại, khoản mục cùng chủ và cùng loại) |
 | `day_of_month` | Ngày trong tháng, 1–31. Tháng ngắn hơn thì rơi vào **ngày cuối tháng** (31 → 30/4, 28 hoặc 29/2) |
+| `remind_days` | 0–7, mặc định 1. Trang Tổng quan chỉ hiện khoản này trong khoảng từ `remind_days` ngày trước đến `remind_days` ngày sau ngày đến hạn (0 = chỉ đúng ngày) |
 | `active` | `false` = tạm dừng, không gợi ý nữa nhưng không xoá |
 
 Mẫu **không tự tạo giao dịch**. Đến ngày, trang Tổng quan gợi ý và bạn bấm Xác nhận (sửa được số tiền) hoặc Bỏ qua. Xoá một mẫu không xoá các giao dịch nó đã tạo trước đó.

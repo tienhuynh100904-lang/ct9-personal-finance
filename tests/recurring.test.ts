@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { confirmDate, dueDate, recurringForMonth, type RecurringRecord } from '../lib/recurring.ts'
+import { confirmDate, dueDate, isNearDue, recurringForMonth, type RecurringRecord } from '../lib/recurring.ts'
 
 const rule = (id: string, item: string, day: number, active = true): RecurringRecord => ({
   id,
@@ -10,6 +10,7 @@ const rule = (id: string, item: string, day: number, active = true): RecurringRe
   category: 'essential',
   amount: 100_000,
   day_of_month: day,
+  remind_days: 1,
   note: null,
   active,
 })
@@ -45,6 +46,24 @@ test('states for the month: due, upcoming, done and skipped, actionable first', 
     ],
   )
   assert.equal(month.find((m) => m.rule.id === 'c')?.transactionId, 't1')
+})
+
+test('an entry is only near its due date: one day before, on the day, one day after', () => {
+  assert.equal(isNearDue('2026-10-10', '2026-10-08'), false)
+  assert.equal(isNearDue('2026-10-10', '2026-10-09'), true)
+  assert.equal(isNearDue('2026-10-10', '2026-10-10'), true)
+  assert.equal(isNearDue('2026-10-10', '2026-10-11'), true)
+  assert.equal(isNearDue('2026-10-10', '2026-10-12'), false)
+  assert.equal(isNearDue('2026-11-01', '2026-10-31'), true)
+})
+
+test('each rule sets its own window; 0 means the due day only', () => {
+  assert.equal(isNearDue('2026-10-10', '2026-10-09', 0), false)
+  assert.equal(isNearDue('2026-10-10', '2026-10-10', 0), true)
+  assert.equal(isNearDue('2026-10-10', '2026-10-11', 0), false)
+  assert.equal(isNearDue('2026-10-10', '2026-10-07', 3), true)
+  assert.equal(isNearDue('2026-10-10', '2026-10-13', 3), true)
+  assert.equal(isNearDue('2026-10-10', '2026-10-14', 3), false)
 })
 
 test('a rule due today is due, not upcoming', () => {

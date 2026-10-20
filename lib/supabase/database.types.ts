@@ -195,6 +195,7 @@ export type Database = {
           category: Category
           amount: number
           day_of_month: number
+          remind_days: number
           note: string | null
           active: boolean
           created_at: string
@@ -208,6 +209,7 @@ export type Database = {
           category: Category
           amount: number
           day_of_month: number
+          remind_days?: number
           note?: string | null
           active?: boolean
           created_at?: string
@@ -221,6 +223,7 @@ export type Database = {
           category?: Category
           amount?: number
           day_of_month?: number
+          remind_days?: number
           note?: string | null
           active?: boolean
           created_at?: string

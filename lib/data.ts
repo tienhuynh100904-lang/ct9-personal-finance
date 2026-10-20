@@ -5,7 +5,7 @@ import type { BudgetRow } from './finance'
 import { habitWindowStart, lastOfMonth } from './habit'
 import { RECURRING_ITEM_JOIN, TRANSACTION_ITEM_JOIN, withItemName } from './items'
 import { addMonthsISO, type AllocationRecord, type GoalRecord, type SavingsPool } from './goals'
-import type { RecurringRecord, RecurringRun } from './recurring'
+import { DEFAULT_REMIND_DAYS, type RecurringRecord, type RecurringRun } from './recurring'
 import { normalizeRemindAt } from './reminders'
 import { isMissingColumn, isMissingTable } from './supabase/errors'
 import type { HabitData, ItemRecord, ItemUsage, TransactionRecord } from './types'
@@ -115,19 +115,23 @@ export type RecurringData = {
 export async function getRecurringData(today: string): Promise<RecurringData | null> {
   const { supabase } = await getSession()
   const [year, month] = today.split('-').map(Number)
-  const [rules, runs] = await Promise.all([
-    supabase
-      .from('recurring_transactions')
-      .select(`id, kind, item_id, category, amount, day_of_month, note, active, ${RECURRING_ITEM_JOIN}`)
-      .order('day_of_month'),
+  const readRules = (columns: string) =>
+    supabase.from('recurring_transactions').select(`${columns}, ${RECURRING_ITEM_JOIN}`).order('day_of_month')
+  const [rulesResult, runs] = await Promise.all([
+    readRules('id, kind, item_id, category, amount, day_of_month, remind_days, note, active'),
     supabase.from('recurring_runs').select('recurring_id, status, transaction_id').eq('year', year).eq('month', month),
   ])
+  // `remind_days` arrives with a newer schema.sql: until it is run, every rule uses the default window.
+  const rules = isMissingColumn(rulesResult.error) ? await readRules('id, kind, item_id, category, amount, day_of_month, note, active') : rulesResult
   for (const { error } of [rules, runs]) {
     if (!error) continue
     if (isMissingTable(error)) return null
     throw new Error(`Không tải được giao dịch định kỳ: ${error.message}`)
   }
-  const named = (rules.data ?? []).map((row) => withItemName(row as unknown as { items: { name: string } | null }) as unknown as RecurringRecord)
+  const named = (rules.data ?? []).map((row) => {
+    const rule = withItemName(row as unknown as { items: { name: string } | null }) as unknown as RecurringRecord
+    return { ...rule, remind_days: rule.remind_days ?? DEFAULT_REMIND_DAYS }
+  })
   named.sort((a, b) => a.day_of_month - b.day_of_month || a.item.localeCompare(b.item, 'vi'))
   return { rules: named, runs: runs.data ?? [], today }
 }

@@ -18,6 +18,8 @@ export type RecurringRecord = {
   amount: number
   /** 1–31. Days past the end of a short month fall on its last day (31 → 30/4, 28 or 29/2). */
   day_of_month: number
+  /** The entry is shown on the dashboard this many days before and after its due date (0–7). */
+  remind_days: number
   note: string | null
   active: boolean
 }
@@ -55,6 +57,21 @@ export function dueDate(year: number, month: number, dayOfMonth: number): string
  */
 export function confirmDate(due: string, today: string): string {
   return due <= today ? due : today
+}
+
+export const DEFAULT_REMIND_DAYS = 1
+export const MAX_REMIND_DAYS = 7
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000)
+}
+
+/**
+ * True on the due date and up to `remindDays` either side (due on the 10th with 1 → shown on the
+ * 9th, 10th and 11th; with 0 → the 10th only).
+ */
+export function isNearDue(due: string, today: string, remindDays: number = DEFAULT_REMIND_DAYS): boolean {
+  return Math.abs(daysBetween(today, due)) <= remindDays
 }
 
 const STATE_ORDER: Record<RecurringState, number> = { due: 0, upcoming: 1, skipped: 2, done: 3 }

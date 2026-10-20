@@ -16,7 +16,7 @@ import { cn } from '@/lib/cn'
 import { categoriesFor, isCategoryOf, type Category, type Kind } from '@/lib/finance'
 import { formatSignedVND } from '@/lib/format'
 import { itemKey } from '@/lib/items'
-import type { RecurringRecord } from '@/lib/recurring'
+import { DEFAULT_REMIND_DAYS, MAX_REMIND_DAYS, type RecurringRecord } from '@/lib/recurring'
 import { runAction } from '@/lib/run-action'
 import { afterDialogClose, toast } from '@/lib/toast'
 import type { ItemRecord, ItemUsage } from '@/lib/types'
@@ -36,7 +36,14 @@ const TEMPLATES: { item: string; kind: Kind; category: Category; day: number }[]
 /** Quick days; "Cuối tháng" is 31, which falls on the last day of shorter months. */
 const DAY_CHOICES = ['1', '5', '10', '15', '20', '25', '31']
 
-type Draft = { kind: Kind; item: ItemRecord | null; category: Category | null; amount: number; day: string }
+/** How many days before and after the due date the dashboard shows the entry. */
+const REMIND_CHOICES = [0, 1, 2, 3, 5, MAX_REMIND_DAYS].map(String)
+
+function remindLabel(days: number): string {
+  return days === 0 ? 'Đúng ngày' : `±${days} ngày`
+}
+
+type Draft = { kind: Kind; item: ItemRecord | null; category: Category | null; amount: number; day: string; remind: string }
 
 /**
  * Giao dịch định kỳ in Cài đặt: a clean list, with adding and editing in a dialog so the page
@@ -97,8 +104,9 @@ function RecurringForm({ rule, items, usage, onDone }: { rule: RecurringRecord |
           category: rule.category,
           amount: rule.amount,
           day: String(rule.day_of_month),
+          remind: String(rule.remind_days),
         }
-      : { kind: 'expense', item: null, category: null, amount: 0, day: '1' },
+      : { kind: 'expense', item: null, category: null, amount: 0, day: '1', remind: String(DEFAULT_REMIND_DAYS) },
   )
   const [errors, setErrors] = useState<FieldErrors<RecurringInput>>({})
   const [pending, startTransition] = useTransition()
@@ -126,6 +134,7 @@ function RecurringForm({ rule, items, usage, onDone }: { rule: RecurringRecord |
       category: draft.category as Category,
       amount: draft.amount,
       day_of_month: day,
+      remind_days: Number(draft.remind),
     }
     startTransition(async () => {
       const result = await runAction(() => saveRecurring(input))
@@ -238,6 +247,22 @@ function RecurringForm({ rule, items, usage, onDone }: { rule: RecurringRecord |
           onChange={(value) => update({ day: value })}
           options={DAY_CHOICES.map((d) => ({ value: d, label: d === '31' ? 'Cuối tháng' : `Ngày ${d}` }))}
         />
+
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-ink-2">Nhắc ở Tổng quan</p>
+          <ChoiceChips
+            label="Nhắc ở Tổng quan"
+            value={draft.remind}
+            onChange={(remind) => update({ remind })}
+            options={REMIND_CHOICES.map((d) => ({ value: d, label: remindLabel(Number(d)) }))}
+          />
+          <p className="mt-1.5 text-xs text-muted">
+            {Number(draft.remind) === 0
+              ? 'Chỉ hiện đúng ngày đến hạn.'
+              : `Hiện từ ${draft.remind} ngày trước đến ${draft.remind} ngày sau ngày đến hạn. Ngoài khoảng đó khoản này ẩn đi.`}
+          </p>
+          {errors.remind_days ? <p className="mt-1.5 text-xs font-medium text-negative">{errors.remind_days}</p> : null}
+        </div>
       </DialogBody>
       <DialogFooter>
         <Button type="submit" size="lg" className="w-full" disabled={pending || !canSubmit}>
@@ -286,6 +311,7 @@ function RuleRow({ rule, onEdit }: { rule: RecurringRecord; onEdit: () => void }
             {CATEGORY_META[rule.category].label}
           </span>
           <span className="whitespace-nowrap">Ngày {rule.day_of_month} hằng tháng</span>
+          <span className="whitespace-nowrap">Nhắc {rule.remind_days === 0 ? 'đúng ngày' : `±${rule.remind_days} ngày`}</span>
           {rule.active ? null : <span className="whitespace-nowrap">Đang tạm dừng</span>}
         </p>
       </div>

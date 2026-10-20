@@ -3,6 +3,7 @@ import { isValidISODate } from './dates'
 import { BUDGET_CATEGORIES, isCategoryOf, type BudgetCategory, type Category, type Kind } from './finance'
 import { MAX_GOAL_RATE_BP, type GoalKind, type GoalPlace } from './goals'
 import { cleanItemName } from './items'
+import { MAX_REMIND_DAYS } from './recurring'
 
 export const MAX_AMOUNT = 999_999_999_999
 export const MAX_ITEM_LENGTH = 100
@@ -91,6 +92,8 @@ export type RecurringInput = {
   amount: number
   /** 1–31; past the end of a short month it falls on the last day. */
   day_of_month: number
+  /** 0–7: days before and after the due date in which the dashboard shows the entry. */
+  remind_days: number
   note?: string | null
 }
 
@@ -107,9 +110,14 @@ export function validateRecurring(input: unknown): Validated<RecurringValues, Fi
   const day = raw.day_of_month
   if (typeof day !== 'number' || !Number.isInteger(day) || day < 1 || day > 31) errors.day_of_month = 'Chọn ngày trong tháng (1–31).'
 
+  const remind = raw.remind_days
+  if (typeof remind !== 'number' || !Number.isInteger(remind) || remind < 0 || remind > MAX_REMIND_DAYS) {
+    errors.remind_days = `Chọn số ngày từ 0 đến ${MAX_REMIND_DAYS}.`
+  }
+
   if (!base.ok || Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors }
   const { kind, item_id, category, amount, note } = base.value
-  return { ok: true, value: { kind, item_id, category, amount, note, day_of_month: day as number } }
+  return { ok: true, value: { kind, item_id, category, amount, note, day_of_month: day as number, remind_days: remind as number } }
 }
 
 export type ItemInput = { kind: Kind; name: string; default_category: Category | null }

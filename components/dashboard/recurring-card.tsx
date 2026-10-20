@@ -14,25 +14,24 @@ import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import type { RecurringData } from '@/lib/data'
 import { formatDayMonth, formatSignedVND } from '@/lib/format'
-import { confirmDate, recurringForMonth, type MonthlyRecurring } from '@/lib/recurring'
+import { confirmDate, isNearDue, recurringForMonth, type MonthlyRecurring } from '@/lib/recurring'
 import { runAction } from '@/lib/run-action'
 import { toast } from '@/lib/toast'
 import { useLocalValue, writeLocalValue } from '@/lib/use-local-value'
 
 const HINT_KEY = 'ct9-recurring-hint-dismissed'
 
-function daysBetween(from: string, to: string): number {
-  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000)
-}
-
 /**
- * This month's recurring entries (tiền nhà, điện nước, wifi, lương…), each one tap from being
- * logged. Nothing is created without a confirmation, because bills change from month to month.
- * Always about the current month, whatever month the dashboard is showing below.
+ * Recurring entries (tiền nhà, điện nước, wifi, lương…) that are about to be due, each one tap
+ * from being logged. Each rule is only shown within its own `remind_days` of the due date (1 by
+ * default: the 9th, 10th and 11th for a rule on the 10th), so the card stays out of the way the
+ * rest of the month. Nothing is created without a
+ * confirmation, because bills change from month to month. Always about the current month,
+ * whatever month the dashboard is showing below.
  */
 export function RecurringCard({ data }: { data: RecurringData }) {
   const { rules, runs, today } = data
-  const month = useMemo(() => recurringForMonth(rules, runs, today), [rules, runs, today])
+  const month = useMemo(() => recurringForMonth(rules, runs, today).filter((m) => isNearDue(m.due, today, m.rule.remind_days)), [rules, runs, today])
   const [year, monthNumber] = today.split('-').map(Number)
   const [pending, startTransition] = useTransition()
   const hintDismissed = useLocalValue(HINT_KEY)
@@ -131,6 +130,8 @@ export function RecurringCard({ data }: { data: RecurringData }) {
   }
 
   if (open.length === 0) {
+    // Nothing left to do: stay hidden, unless a skipped entry could still be restored.
+    if (skipped.length === 0) return null
     return (
       <section className="rounded-2xl border border-line bg-surface px-4 py-3 shadow-[var(--shadow-1)]">
         <div className="flex items-center gap-3">
@@ -172,7 +173,7 @@ export function RecurringCard({ data }: { data: RecurringData }) {
               Khoản định kỳ tháng {monthNumber}
             </h2>
             <p className="mt-0.5 text-sm text-muted">
-              {due.length > 0 ? `${due.length} khoản đến hạn chờ xác nhận` : 'Chưa đến hạn khoản nào'} · {done.length}/{month.length} đã ghi
+              {due.length > 0 ? `${due.length} khoản đến hạn chờ xác nhận` : 'Sắp đến hạn'} · {done.length}/{month.length} đã ghi
             </p>
           </div>
         </div>
@@ -250,7 +251,6 @@ function RecurringRow({
   const income = rule.kind === 'income'
   const KindIcon = income ? ArrowDownLeft : ArrowUpRight
   const isDue = state === 'due'
-  const wait = daysBetween(today, due)
 
   return (
     <li className={cn('px-4 py-3 sm:px-5', isDue && 'bg-[color-mix(in_oklab,var(--brand)_7%,var(--surface))]')}>
@@ -266,7 +266,7 @@ function RecurringRow({
               {CATEGORY_META[rule.category].label}
             </span>
             <span className={cn('whitespace-nowrap', isDue && 'font-medium text-brand-ink')}>
-              {isDue ? (due === today ? 'Đến hạn hôm nay' : `Đến hạn ${formatDayMonth(due)}`) : `Ngày ${formatDayMonth(due)} · còn ${wait} ngày`}
+              {isDue ? (due === today ? 'Đến hạn hôm nay' : `Đến hạn ${formatDayMonth(due)}`) : `Ngày ${formatDayMonth(due)} · ngày mai`}
             </span>
           </p>
         </div>

@@ -311,6 +311,10 @@ create table if not exists public.recurring_transactions (
 
 create index if not exists recurring_transactions_user_idx on public.recurring_transactions (user_id);
 
+-- Số ngày hiện nhắc trước và sau ngày đến hạn (0 = chỉ đúng ngày đó).
+alter table public.recurring_transactions
+  add column if not exists remind_days smallint not null default 1 check (remind_days between 0 and 7);
+
 create table if not exists public.recurring_runs (
   recurring_id   uuid not null references public.recurring_transactions (id) on delete cascade,
   user_id        uuid not null default auth.uid() references auth.users (id) on delete cascade,

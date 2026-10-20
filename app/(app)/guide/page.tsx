@@ -181,7 +181,8 @@ export default function GuidePage() {
               <strong>Lặp lại hằng tháng</strong> khi ghi một giao dịch mới.
             </>,
             <>
-              Mỗi tháng, thẻ <strong>Khoản định kỳ</strong> ở trang Tổng quan liệt kê các khoản đến hạn. Bấm <strong>Xác nhận</strong> để
+              Thẻ <strong>Khoản định kỳ</strong> ở trang Tổng quan chỉ hiện khi một khoản sắp đến hạn (mặc định trước và sau 1 ngày, chỉnh được ở mục{' '}
+              <strong>Nhắc ở Tổng quan</strong> của từng khoản). Bấm <strong>Xác nhận</strong> để
               ghi, hoặc <strong>Số tiền khác</strong> nếu tháng này khác (tiền điện chẳng hạn).
             </>,
             <>
