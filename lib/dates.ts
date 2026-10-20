@@ -45,9 +45,16 @@ function firstValue(value: ParamValue): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
+/** The years the app accepts (same span as the calendar's MIN_DATE / MAX_DATE). */
+export const MIN_YEAR = 2000
+export const MAX_YEAR = 2100
+
+/** Every year the year pickers offer, newest first, so any period can be browsed or planned. */
+export const YEAR_OPTIONS: number[] = Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MAX_YEAR - i)
+
 export function parseYear(value: ParamValue): number | null {
   const year = Number(firstValue(value))
-  return Number.isInteger(year) && year >= 2000 && year <= 2100 ? year : null
+  return Number.isInteger(year) && year >= MIN_YEAR && year <= MAX_YEAR ? year : null
 }
 
 export function parseMonth(value: ParamValue): number | null {

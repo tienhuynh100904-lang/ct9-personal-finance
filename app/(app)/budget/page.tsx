@@ -3,7 +3,8 @@ import { Suspense } from 'react'
 import { PageHeader } from '@/components/app/page-header'
 import { BudgetView } from '@/components/budget/budget-view'
 import { PageSkeleton } from '@/components/ui/skeleton'
-import { getBudgetRows, getTransactionsForYear, getYearOptions } from '@/lib/data'
+import { getBudgetRows, getTransactionsForYear } from '@/lib/data'
+import { YEAR_OPTIONS } from '@/lib/dates'
 import { defaultMonthFor, resolveYear } from '@/lib/period'
 
 export const metadata: Metadata = { title: 'Ngân sách' }
@@ -24,15 +25,11 @@ export default function BudgetPage({ searchParams }: PageProps<'/budget'>) {
 
 async function Budget({ searchParams }: Pick<PageProps<'/budget'>, 'searchParams'>) {
   const { year, today } = await resolveYear(searchParams)
-  const [transactions, budgetRows, years] = await Promise.all([
-    getTransactionsForYear(year),
-    getBudgetRows(year),
-    getYearOptions(today.year),
-  ])
+  const [transactions, budgetRows] = await Promise.all([getTransactionsForYear(year), getBudgetRows(year)])
   return (
     <BudgetView
       year={year}
-      years={years}
+      years={YEAR_OPTIONS}
       defaultMonth={defaultMonthFor(year, today, transactions)}
       transactions={transactions}
       budgetRows={budgetRows}

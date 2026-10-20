@@ -65,6 +65,7 @@ export function DashboardView({
 }) {
   const [monthParam, setMonth] = useMonthParam(defaultMonth)
   const month = monthParam === 'all' ? defaultMonth : monthParam
+  const current = { year: Number(habit.today.slice(0, 4)), month: Number(habit.today.slice(5, 7)) }
 
   const includeFundSpending = useIncludeFundSpending()
   const report = useMemo(() => buildYearReport(transactions, year, { includeFundSpending }), [transactions, year, includeFundSpending])
@@ -85,7 +86,7 @@ export function DashboardView({
       <QuickLog presets={presets} />
 
       <div className="flex flex-wrap items-center gap-3">
-        <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} stretch />
+        <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} current={current} stretch />
       </div>
 
       <BudgetAlerts alerts={alerts} year={year} month={month} today={habit.today} />

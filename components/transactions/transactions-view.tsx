@@ -42,11 +42,14 @@ export function TransactionsView({
   year,
   years,
   defaultMonth,
+  current,
   transactions,
 }: {
   year: number
   years: number[]
   defaultMonth: MonthValue
+  /** This year and month in app time, for the "Hiện tại" button. */
+  current: { year: number; month: number }
   transactions: TransactionRecord[]
 }) {
   const [month, setMonth] = useMonthParam(defaultMonth)
@@ -108,7 +111,7 @@ export function TransactionsView({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full sm:w-auto">
-          <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} allowAll stretch />
+          <MonthSwitcher year={year} month={month} onMonthChange={setMonth} years={years} current={current} allowAll stretch />
         </div>
         <div className="order-2 flex w-full gap-2 sm:order-none sm:w-auto sm:flex-1">
           <SearchInput

@@ -204,26 +204,6 @@ export async function getDepositsData(): Promise<DepositRecord[] | null> {
   return data
 }
 
-/** Years the year pickers offer: every year with data, plus this year and next (for planning). */
-export async function getYearOptions(currentYear: number): Promise<number[]> {
-  const { supabase } = await getSession()
-  const [first, last, budgetFirst] = await Promise.all([
-    supabase.from('transactions').select('occurred_on').order('occurred_on').limit(1).maybeSingle(),
-    supabase.from('transactions').select('occurred_on').order('occurred_on', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('budgets').select('year').order('year').limit(1).maybeSingle(),
-  ])
-  const candidates = [
-    currentYear,
-    currentYear + 1,
-    first.data ? Number(first.data.occurred_on.slice(0, 4)) : currentYear,
-    last.data ? Number(last.data.occurred_on.slice(0, 4)) : currentYear,
-    budgetFirst.data?.year ?? currentYear,
-  ]
-  const min = Math.min(...candidates)
-  const max = Math.max(...candidates)
-  return Array.from({ length: max - min + 1 }, (_, i) => max - i)
-}
-
 /**
  * Everything the home screen's habit card needs, for a window of recent days that is
  * independent of the year being viewed (so a streak survives New Year).

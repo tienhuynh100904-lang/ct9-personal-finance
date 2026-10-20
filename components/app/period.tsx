@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useTransition } from 'react'
 import { MonthPicker, type MonthValue } from '@/components/ui/month-picker'
@@ -65,12 +65,16 @@ export function YearSelect({ year, years, className }: { year: number; years: nu
   )
 }
 
-/** ‹ Tháng 10/2026 › — arrows step across year boundaries too; the middle button opens a month grid. */
+/**
+ * ‹ Tháng 10/2026 › — arrows step across year boundaries too; the middle button opens a month grid.
+ * With `current`, a "Hiện tại" button appears whenever another period is showing and jumps back to it.
+ */
 export function MonthSwitcher({
   year,
   month,
   onMonthChange,
   years,
+  current,
   allowAll = false,
   stretch = false,
 }: {
@@ -78,6 +82,8 @@ export function MonthSwitcher({
   month: MonthValue
   onMonthChange: (month: MonthValue) => void
   years: number[]
+  /** This year and month in app time. */
+  current?: { year: number; month: number }
   allowAll?: boolean
   /** Fill the row on phones: the month button grows between the two arrows. */
   stretch?: boolean
@@ -100,6 +106,13 @@ export function MonthSwitcher({
 
   const atStart = month === 'all' ? year <= minYear : month === 1 && year <= minYear
   const atEnd = month === 'all' ? year >= maxYear : month === 12 && year >= maxYear
+
+  const away = current !== undefined && (year !== current.year || month !== current.month)
+  function backToCurrent() {
+    if (!current) return
+    if (year !== current.year) goToYear(current.year, current.month)
+    else onMonthChange(current.month)
+  }
 
   return (
     <div className={cn('flex items-center gap-1.5', stretch ? 'w-full sm:inline-flex sm:w-auto' : 'inline-flex')}>
@@ -130,6 +143,17 @@ export function MonthSwitcher({
       >
         <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </button>
+      {away ? (
+        <button
+          type="button"
+          onClick={backToCurrent}
+          disabled={pending}
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-brand-edge bg-brand-soft px-3 text-sm font-medium text-brand-ink transition-colors hover:bg-brand-soft/70 focus:outline-none focus-visible:ring-3 focus-visible:ring-focus/30 active:bg-brand-soft/70 disabled:opacity-40 pointer-coarse:h-11"
+        >
+          <CalendarCheck className="size-4" aria-hidden />
+          Hiện tại
+        </button>
+      ) : null}
     </div>
   )
 }
