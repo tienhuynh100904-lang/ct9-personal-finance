@@ -26,6 +26,8 @@ import {
   type GoalProgress,
   type GoalRecord,
 } from '@/lib/goals'
+import type { DepositRecord } from '@/lib/deposits'
+import { DepositsSection } from './deposits-section'
 import { AllocateDialog, GoalDetailDialog, GoalFormDialog, TakeOutDialog } from './goal-dialogs'
 
 const IDEAS = ['Đi du lịch', 'Mua xe', 'Học phí', 'Mua nhà', 'Đám cưới', 'Nghỉ hưu']
@@ -50,7 +52,7 @@ function monthlyNeed(p: GoalProgress | null): number {
  * fund that every account has, and any number of custom goals. Money is moved from the pool into
  * goals (one or several at once) and back out; nothing here creates transactions.
  */
-export function GoalsView({ data, items, usage }: { data: GoalsData; items: ItemRecord[]; usage: ItemUsage[] }) {
+export function GoalsView({ data, items, usage, deposits }: { data: GoalsData; items: ItemRecord[]; usage: ItemUsage[]; deposits: DepositRecord[] | null }) {
   const { goals, allocations, pool, monthlySaving, essentialAverage, today } = data
   const progresses = useMemo(() => goals.map((g) => goalProgress(g, allocations, today)), [goals, allocations, today])
 
@@ -225,6 +227,9 @@ export function GoalsView({ data, items, usage }: { data: GoalsData; items: Item
           </div>
         )}
       </section>
+
+      {/* Same savings as the goals, but not taken out of them: a sum can be in a goal and in a deposit. */}
+      {deposits ? <DepositsSection deposits={deposits} pool={pool} today={today} /> : null}
 
       {archived.length > 0 ? (
         <details className="group rounded-2xl border border-line bg-surface">

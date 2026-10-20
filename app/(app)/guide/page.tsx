@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   ArrowUpFromLine,
+  Landmark,
   BellRing,
   BookOpen,
   CalendarCheck,
@@ -44,6 +45,7 @@ const TOC: { id: string; label: string }[] = [
   { id: 'ngan-sach', label: 'Ngân sách' },
   { id: 'canh-bao', label: 'Cảnh báo' },
   { id: 'muc-tieu', label: 'Mục tiêu' },
+  { id: 'khoan-tiet-kiem', label: 'Khoản tiết kiệm' },
   { id: 'rut-chi', label: 'Rút hay chi quỹ' },
   { id: 'thu-chi', label: 'Sổ thu chi' },
   { id: 'phan-tich', label: 'Phân tích' },
@@ -265,6 +267,24 @@ export default function GuidePage() {
               khả thi.
             </>,
             'Quỹ đã dùng xong thì lưu trữ. Bấm biểu tượng thùng rác để xoá một quỹ (kể cả Quỹ khẩn cấp): tiền của quỹ quay về phần chưa phân bổ, các giao dịch tiết kiệm đã ghi vẫn giữ nguyên.',
+          ]}
+        />
+      </Section>
+
+      <Section id="khoan-tiet-kiem" icon={Landmark} title="Khoản tiết kiệm: theo dõi ngày đáo hạn" link={{ href: '/goals', label: 'Mở Khoản tiết kiệm' }}>
+        <p>
+          Gửi tiết kiệm có kỳ hạn ở ngân hàng thì thêm vào mục <strong>Khoản tiết kiệm</strong> (cuối trang Mục tiêu) để thấy ngày đáo hạn và số tiền
+          sẽ nhận. Mục này chỉ để theo dõi, không tạo giao dịch thu chi.
+        </p>
+        <Points
+          items={[
+            'Nhập tên, số tiền gửi, ngày gửi, kỳ hạn (tháng) và lãi suất. App tính ngày đáo hạn và tiền lãi (lãi đơn: gốc × lãi suất × số ngày / 365).',
+            'Khoản đáo hạn trong vòng 14 ngày hoặc đã quá hạn được đưa lên đầu danh sách kèm số ngày còn lại.',
+            <>
+              Đến hạn thì bấm <strong>Tất toán</strong> (đã rút tiền) hoặc <strong>Tái tục</strong> (mở khoản mới nối tiếp, chọn chỉ gốc hay gốc + lãi). Tất toán nhầm thì
+              bấm Hoàn tác hoặc Mở lại.
+            </>,
+            'Khoản tiết kiệm không trừ vào tiền chưa phân bổ của các quỹ, nên cùng một khoản tiền có thể vừa nằm trong một quỹ vừa nằm trong một khoản tiết kiệm. App chỉ cảnh báo khi tổng các khoản tiết kiệm lớn hơn số đã ghi ở nhóm Tiết kiệm/Đầu tư.',
           ]}
         />
       </Section>

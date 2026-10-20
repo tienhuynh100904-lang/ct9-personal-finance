@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { GoalsView } from '@/components/goals/goals-view'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { PageSkeleton } from '@/components/ui/skeleton'
-import { getGoalsData, getItems, getItemUsage } from '@/lib/data'
+import { getDepositsData, getGoalsData, getItems, getItemUsage } from '@/lib/data'
 import { resolveYear } from '@/lib/period'
 
 export const metadata: Metadata = { title: 'Mục tiêu' }
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: 'Mục tiêu' }
 export default function GoalsPage({ searchParams }: PageProps<'/goals'>) {
   return (
     <>
-      <PageHeader title="Mục tiêu" description="Xây quỹ khẩn cấp và các quỹ cho từng mục tiêu từ tiền bạn đã tiết kiệm" />
+      <PageHeader title="Mục tiêu" description="Xây quỹ khẩn cấp, các quỹ cho từng mục tiêu và theo dõi khoản tiết kiệm đến ngày đáo hạn" />
       <Suspense fallback={<PageSkeleton />}>
         <Goals searchParams={searchParams} />
       </Suspense>
@@ -22,7 +22,7 @@ export default function GoalsPage({ searchParams }: PageProps<'/goals'>) {
 
 async function Goals({ searchParams }: Pick<PageProps<'/goals'>, 'searchParams'>) {
   const { today } = await resolveYear(searchParams)
-  const [data, items, usage] = await Promise.all([getGoalsData(today.iso), getItems(), getItemUsage()])
+  const [data, items, usage, deposits] = await Promise.all([getGoalsData(today.iso), getItems(), getItemUsage(), getDepositsData()])
   if (!data) {
     return (
       <Card>
@@ -33,5 +33,5 @@ async function Goals({ searchParams }: Pick<PageProps<'/goals'>, 'searchParams'>
       </Card>
     )
   }
-  return <GoalsView data={data} items={items} usage={usage} />
+  return <GoalsView data={data} items={items} usage={usage} deposits={deposits} />
 }

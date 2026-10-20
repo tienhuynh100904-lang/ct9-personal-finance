@@ -261,6 +261,48 @@ export type Database = {
         }
         Relationships: []
       }
+      savings_deposits: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          principal: number
+          rate_bp: number
+          start_date: string
+          term_months: number
+          note: string | null
+          closed_on: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          name: string
+          principal: number
+          rate_bp?: number
+          start_date: string
+          term_months: number
+          note?: string | null
+          closed_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          principal?: number
+          rate_bp?: number
+          start_date?: string
+          term_months?: number
+          note?: string | null
+          closed_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
           id: string

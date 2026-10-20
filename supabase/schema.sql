@@ -826,3 +826,44 @@ drop trigger if exists seed_items_on_signup on auth.users;
 create trigger seed_items_on_signup
   after insert on auth.users
   for each row execute function public.handle_new_user_items();
+
+-- ---------------------------------------------------------------------
+-- 13) Khoản tiết kiệm có kỳ hạn (gửi ngân hàng, tái tục…). Chỉ để theo dõi ngày
+--     đáo hạn và tiền lãi: không tạo giao dịch và không trừ vào tiền chưa
+--     phân bổ của các quỹ, nên một khoản tiền vừa nằm trong quỹ vừa nằm trong
+--     khoản tiết kiệm. `closed_on` có giá trị = đã tất toán (hoặc đã tái tục
+--     sang khoản mới).
+--     Ngày đáo hạn = start_date + term_months; lãi đơn = gốc × lãi suất ×
+--     số ngày / 365.
+-- ---------------------------------------------------------------------
+create table if not exists public.savings_deposits (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name        text not null check (char_length(btrim(name)) between 1 and 60),
+  principal   bigint not null check (principal > 0 and principal < 1000000000000),
+  rate_bp     smallint not null default 0 check (rate_bp between 0 and 2000),
+  start_date  date not null,
+  term_months smallint not null check (term_months between 1 and 120),
+  note        text check (note is null or char_length(note) <= 500),
+  closed_on   date,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists savings_deposits_user_idx on public.savings_deposits (user_id, closed_on);
+
+drop trigger if exists savings_deposits_set_updated_at on public.savings_deposits;
+create trigger savings_deposits_set_updated_at
+  before update on public.savings_deposits
+  for each row execute function public.set_updated_at();
+
+alter table public.savings_deposits enable row level security;
+
+drop policy if exists "Owner full access" on public.savings_deposits;
+create policy "Owner full access" on public.savings_deposits
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+revoke all on public.savings_deposits from anon;
+grant select, insert, update, delete on public.savings_deposits to authenticated;

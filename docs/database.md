@@ -327,6 +327,19 @@ Tương ứng file Excel *Theo dõi mục tiêu tài chính*: mỗi quỹ một 
 - Ứng dụng mặc định **không tính** khoản chi từ quỹ vào thặng dư tháng (tiền đã để dành từ trước); người dùng tick "Tính cả chi từ quỹ" để tính. "Tích lũy" luôn = thu nhập − chi tiêu thật.
 - Xoá một quỹ (kể cả Quỹ khẩn cấp, sau đó có thể thiết lập lại) thì các dòng của nó bị xoá theo (`on delete cascade`), tiền quay về phần chưa phân bổ. Giao dịch tiết kiệm đã ghi không bị ảnh hưởng.
 
+### 5.10 `savings_deposits` — khoản tiết kiệm có kỳ hạn
+
+Mỗi dòng là một khoản gửi có kỳ hạn (gửi ngân hàng…), chỉ để theo dõi ngày đáo hạn và tiền lãi.
+
+| Cột | Ý nghĩa |
+|---|---|
+| `name`, `principal`, `note` | Tên, số tiền gửi (> 0), ghi chú |
+| `rate_bp` | Lãi suất %/năm tính theo điểm cơ bản (580 = 5,8%), 0–2000 |
+| `start_date`, `term_months` | Ngày gửi và kỳ hạn 1–120 tháng. **Ngày đáo hạn** = `start_date` + `term_months` (không lưu, tính ra; ngày 29–31 rơi vào ngày cuối tháng ngắn hơn) |
+| `closed_on` | Có giá trị = đã tất toán hoặc đã tái tục sang khoản mới; `null` = còn gửi |
+
+Lãi tính đơn: gốc × lãi suất × số ngày / 365. Bảng này **không tạo giao dịch** và **không trừ vào** tiền chưa phân bổ (`savings_pool`) của các quỹ, nên cùng một khoản tiền có thể vừa nằm trong quỹ vừa nằm trong khoản tiết kiệm. Tái tục = tất toán khoản cũ và thêm một dòng mới bắt đầu từ ngày đáo hạn của khoản cũ.
+
 ## 6. Hàm và trigger
 
 **`set_updated_at()` + 2 trigger** — Trước mỗi lần sửa một dòng ở `transactions` hoặc `budgets`, trigger tự gán `updated_at = now()`. Bạn không cần tự cập nhật cột này.

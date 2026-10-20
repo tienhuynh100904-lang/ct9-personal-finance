@@ -42,12 +42,12 @@ const RESERVE_CHOICES = ['1', '3', '6', '9', '12']
 const RATE_CHOICES = ['0', '4', '6', '8']
 
 /** "4" or "4,5" (percent) → basis points; NaN when not a number. */
-function percentToBp(text: string): number {
+export function percentToBp(text: string): number {
   const value = Number(text.replace(',', '.').trim())
   return text.trim() === '' || !Number.isFinite(value) ? Number.NaN : Math.round(value * 100)
 }
 
-function bpToPercent(bp: number): string {
+export function bpToPercent(bp: number): string {
   return String(bp / 100).replace('.', ',')
 }
 

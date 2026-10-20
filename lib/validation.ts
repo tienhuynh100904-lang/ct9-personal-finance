@@ -3,6 +3,7 @@ import { isValidISODate } from './dates'
 import { BUDGET_CATEGORIES, isCategoryOf, type BudgetCategory, type Category, type Kind } from './finance'
 import { MAX_GOAL_RATE_BP, type GoalKind, type GoalPlace } from './goals'
 import { cleanItemName } from './items'
+import { MAX_DEPOSIT_RATE_BP, MAX_DEPOSIT_TERM_MONTHS } from './deposits'
 import { MAX_REMIND_DAYS } from './recurring'
 
 export const MAX_AMOUNT = 999_999_999_999
@@ -279,5 +280,54 @@ export function validateGoal(input: unknown): Validated<GoalValues, FieldErrors<
       initial_amount: initial as number,
       note: note || null,
     },
+  }
+}
+
+export const MAX_DEPOSIT_NAME_LENGTH = 60
+export const MAX_DEPOSIT_NOTE_LENGTH = 500
+
+export type DepositInput = {
+  id?: string
+  name: string
+  principal: number
+  /** Basis points: 580 = 5,8%/năm, at most MAX_DEPOSIT_RATE_BP. */
+  rate_bp: number
+  start_date: string
+  term_months: number
+  note?: string | null
+}
+
+export type DepositValues = Omit<DepositInput, 'id' | 'note'> & { note: string | null }
+
+export function validateDeposit(input: unknown): Validated<DepositValues, FieldErrors<DepositInput>> {
+  const raw = (input ?? {}) as Record<string, unknown>
+  const errors: FieldErrors<DepositInput> = {}
+
+  const name = typeof raw.name === 'string' ? raw.name.trim().replace(/\s+/g, ' ') : ''
+  if (!name) errors.name = 'Nhập tên khoản tiết kiệm.'
+  else if (name.length > MAX_DEPOSIT_NAME_LENGTH) errors.name = `Tối đa ${MAX_DEPOSIT_NAME_LENGTH} ký tự.`
+
+  if (!isAmount(raw.principal)) errors.principal = 'Nhập số tiền gửi lớn hơn 0.'
+
+  const rate = raw.rate_bp
+  if (typeof rate !== 'number' || !Number.isInteger(rate) || rate < 0 || rate > MAX_DEPOSIT_RATE_BP) {
+    errors.rate_bp = `Lãi suất từ 0 đến ${MAX_DEPOSIT_RATE_BP / 100}%/năm.`
+  }
+
+  const start = typeof raw.start_date === 'string' ? raw.start_date : ''
+  if (!isValidISODate(start) || start < '2000-01-01' || start > '2100-12-31') errors.start_date = 'Ngày không hợp lệ.'
+
+  const term = raw.term_months
+  if (typeof term !== 'number' || !Number.isInteger(term) || term < 1 || term > MAX_DEPOSIT_TERM_MONTHS) {
+    errors.term_months = `Kỳ hạn từ 1 đến ${MAX_DEPOSIT_TERM_MONTHS} tháng.`
+  }
+
+  const note = typeof raw.note === 'string' ? raw.note.trim() : ''
+  if (note.length > MAX_DEPOSIT_NOTE_LENGTH) errors.note = `Tối đa ${MAX_DEPOSIT_NOTE_LENGTH} ký tự.`
+
+  if (Object.keys(errors).length > 0) return { ok: false, fieldErrors: errors }
+  return {
+    ok: true,
+    value: { name, principal: raw.principal as number, rate_bp: rate as number, start_date: start, term_months: term as number, note: note || null },
   }
 }

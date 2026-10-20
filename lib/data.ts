@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { getSession } from './auth'
+import type { DepositRecord } from './deposits'
 import type { BudgetRow } from './finance'
 import { habitWindowStart, lastOfMonth } from './habit'
 import { RECURRING_ITEM_JOIN, TRANSACTION_ITEM_JOIN, withItemName } from './items'
@@ -187,6 +188,20 @@ export async function getGoalsData(today: string): Promise<GoalsData | null> {
     essentialAverage: essentialTotal > 0 ? Math.round(essentialTotal / 3 / 1000) * 1000 : null,
     today,
   }
+}
+
+/** Khoản tiết kiệm có kỳ hạn, or `null` when schema.sql has not been re-run yet. */
+export async function getDepositsData(): Promise<DepositRecord[] | null> {
+  const { supabase } = await getSession()
+  const { data, error } = await supabase
+    .from('savings_deposits')
+    .select('id, name, principal, rate_bp, start_date, term_months, note, closed_on')
+    .order('start_date', { ascending: false })
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return null
+    throw new Error(`Không tải được khoản tiết kiệm: ${error.message}`)
+  }
+  return data
 }
 
 /** Years the year pickers offer: every year with data, plus this year and next (for planning). */
