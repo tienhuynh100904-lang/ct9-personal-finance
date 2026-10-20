@@ -1,4 +1,3 @@
-import { Flame, PiggyBank, Zap } from 'lucide-react'
 import type { CSSProperties, ReactNode } from 'react'
 import { CoinDefs, GoldCoin, Sparkle } from './gold-coin'
 
@@ -12,12 +11,6 @@ const FALLING_COINS: { left: string; size: number; dur: number; delay: number; d
   { left: '68%', size: 18, dur: 21, delay: -18, drift: 24, far: true },
   { left: '79%', size: 30, dur: 18, delay: -9, drift: -28 },
   { left: '91%', size: 20, dur: 20, delay: -13, drift: 18 },
-]
-
-const FEATURES = [
-  { icon: Zap, title: 'Ghi thu chi trong vài giây', text: 'Mở app, chọn khoản mục, nhập số tiền. Xong.' },
-  { icon: PiggyBank, title: 'Ngân sách và tiết kiệm rõ ràng', text: 'Biết ngay tháng này còn tiêu được bao nhiêu.' },
-  { icon: Flame, title: 'Giữ chuỗi ngày ghi chép', text: 'Thói quen nhỏ mỗi ngày, kết quả lớn mỗi năm.' },
 ]
 
 /**
@@ -35,30 +28,13 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
       <div className="relative mx-auto grid min-h-dvh w-full max-w-6xl content-center items-center gap-7 px-4 py-8 sm:py-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:px-10">
         <section className="auth-rise flex flex-col items-center text-center lg:items-start lg:text-left">
           <CoinStage />
-          <h1 className="auth-title mt-5 text-3xl font-bold tracking-tight lg:mt-8 lg:text-5xl">CT9 Finance</h1>
+          <h1 className="auth-title mt-5 text-3xl font-bold tracking-tight lg:mt-7 lg:text-5xl">CT9 Finance</h1>
           <p className="mt-1.5 text-sm text-ink-2 lg:text-base">{subtitle}</p>
 
-          <div className="hidden lg:block">
-            <p className="mt-8 max-w-md text-2xl leading-snug font-semibold tracking-tight text-ink">
-              Làm chủ từng đồng tiền, <span className="text-brand-ink">mỗi ngày một chút.</span>
+          <div className="hidden w-full max-w-md lg:block">
+            <p className="mt-6 text-2xl leading-snug font-semibold tracking-tight text-balance text-ink">
+              Chi tiêu thông minh là khi <span className="text-brand-ink">chi tiêu có kiểm soát</span>
             </p>
-            <ul className="mt-6 space-y-3">
-              {FEATURES.map(({ icon: Icon, title: featureTitle, text }, i) => (
-                <li
-                  key={featureTitle}
-                  className="auth-rise flex max-w-md items-start gap-3 rounded-2xl border border-line bg-surface/70 p-3 backdrop-blur-md"
-                  style={{ animationDelay: `${260 + i * 110}ms` }}
-                >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-ink">
-                    <Icon className="size-5" aria-hidden />
-                  </span>
-                  <span>
-                    <span className="block text-sm font-semibold">{featureTitle}</span>
-                    <span className="block text-sm text-muted">{text}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
 
@@ -67,7 +43,6 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
             <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
             <div className="mt-5">{children}</div>
           </div>
-          <p className="mt-5 text-center text-xs text-muted">Mỗi đồng ghi lại hôm nay là một bước gần hơn tới mục tiêu.</p>
         </div>
       </div>
     </main>
@@ -110,7 +85,7 @@ export function AuthBackdrop() {
 /** The hero: a big coin that bobs and flips, with a pulsing halo, two orbiting coins and sparkles. */
 function CoinStage() {
   return (
-    <div className="relative size-28 lg:size-44" aria-hidden>
+    <div className="relative size-28 lg:size-36" aria-hidden>
       <span className="coin-halo absolute -inset-[35%] rounded-full" />
       <span className="coin-orbit absolute -inset-[22%]">
         <GoldCoin className="coin-orbit-item absolute top-0 left-1/2 w-[22%] -translate-x-1/2" />

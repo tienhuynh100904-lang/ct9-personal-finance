@@ -24,20 +24,24 @@ export function CoinDefs() {
   )
 }
 
-/** A gold đồng coin: reeded rim, raised inner ring and an embossed ₫. Purely decorative. */
-export function GoldCoin({ className, style }: { className?: string; style?: CSSProperties }) {
+/** A gold đồng coin: reeded rim, raised inner ring and an embossed ₫ (`symbol={false}` leaves the face blank). Purely decorative. */
+export function GoldCoin({ className, style, symbol = true }: { className?: string; style?: CSSProperties; symbol?: boolean }) {
   return (
     <svg viewBox="0 0 64 64" className={cn('block', className)} style={style} aria-hidden focusable="false">
       <circle cx="32" cy="32" r="31" fill="url(#ct9-coin-rim)" />
       <circle cx="32" cy="32" r="28.4" fill="none" stroke="#fff4c2" strokeOpacity="0.6" strokeWidth="1.6" strokeDasharray="1.4 2.2" />
       <circle cx="32" cy="32" r="25.6" fill="url(#ct9-coin-face)" />
       <circle cx="32" cy="32" r="21.6" fill="none" stroke="#9a6400" strokeOpacity="0.32" strokeWidth="1.2" />
-      <text x="31.2" y="41.2" textAnchor="middle" fontSize="25" fontWeight="800" fill="#fff8dc" fillOpacity="0.75">
-        ₫
-      </text>
-      <text x="32" y="42" textAnchor="middle" fontSize="25" fontWeight="800" fill="#9a6400">
-        ₫
-      </text>
+      {symbol && (
+        <>
+          <text x="31.2" y="41.2" textAnchor="middle" fontSize="25" fontWeight="800" fill="#fff8dc" fillOpacity="0.75">
+            ₫
+          </text>
+          <text x="32" y="42" textAnchor="middle" fontSize="25" fontWeight="800" fill="#9a6400">
+            ₫
+          </text>
+        </>
+      )}
       <path d="M13.5 25 A19.5 19.5 0 0 1 28 12.6" fill="none" stroke="#fff" strokeOpacity="0.75" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
   )

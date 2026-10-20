@@ -27,9 +27,6 @@ export default function NotFound() {
       <AuthBackdrop />
 
       <div className="auth-rise relative w-full max-w-md text-center">
-        <span className="inline-flex items-center rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold tracking-wide text-brand-ink">
-          Lỗi 404
-        </span>
 
         <div
           role="img"
@@ -44,7 +41,7 @@ export default function NotFound() {
             <span className="coin-shadow absolute -bottom-[16%] left-[15%] h-[10%] w-[70%] rounded-[50%]" />
             <span className="coin-bob absolute inset-0">
               <span className="coin-flip relative block size-full">
-                <GoldCoin className="size-full drop-shadow-[0_10px_18px_rgba(168,108,6,0.45)]" />
+                <GoldCoin symbol={false} className="size-full drop-shadow-[0_10px_18px_rgba(168,108,6,0.45)]" />
                 <span className="coin-shine absolute inset-[3%] overflow-hidden rounded-full" />
               </span>
             </span>
