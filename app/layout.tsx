@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { OfflineBanner } from '@/components/app/offline-banner'
 import { ThemeSync } from '@/components/app/theme-sync'
 import { AppToaster } from '@/components/ui/toaster'
 import { THEME_COLORS, THEME_INIT_SCRIPT } from '@/lib/theme'
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="min-h-full bg-bg font-sans text-ink">
         {children}
         <ThemeSync />
+        <OfflineBanner />
         <AppToaster />
       </body>
     </html>

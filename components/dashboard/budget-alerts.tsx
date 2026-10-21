@@ -13,7 +13,7 @@ const DISMISS_KEY = 'ct9-budget-alerts-dismissed'
 
 /**
  * "Cảnh báo ngân sách": the spending groups of the viewed month that reached 80% of their plan or
- * went over. Dismissing hides it until a new group reaches a threshold (or one goes from 80% to over).
+ * went over. Only for the current (or a later) month, never for one that has already ended. Dismissing hides it until a new group reaches a threshold (or one goes from 80% to over).
  */
 export function BudgetAlerts({
   alerts,
@@ -29,11 +29,14 @@ export function BudgetAlerts({
 }) {
   const dismissed = useLocalValue(DISMISS_KEY)
   const stamp = `${year}-${month}|${alertsSignature(alerts)}`
+  const viewedMonth = `${year}-${String(month).padStart(2, '0')}`
+  // Months that are already over are history, not something to act on: no warning for them.
+  const isPastMonth = viewedMonth < today.slice(0, 7)
   // `undefined` = not hydrated yet: wait, so a dismissed banner never flashes in.
-  if (alerts.length === 0 || dismissed === undefined || dismissed === stamp) return null
+  if (isPastMonth || alerts.length === 0 || dismissed === undefined || dismissed === stamp) return null
 
   const anyOver = alerts.some((a) => a.level === 'over')
-  const isCurrentMonth = today.startsWith(`${year}-${String(month).padStart(2, '0')}`)
+  const isCurrentMonth = viewedMonth === today.slice(0, 7)
   const daysLeft = isCurrentMonth ? daysInMonth(year, month) - Number(today.slice(8)) + 1 : 0
   const Icon = anyOver ? CircleAlert : TriangleAlert
 

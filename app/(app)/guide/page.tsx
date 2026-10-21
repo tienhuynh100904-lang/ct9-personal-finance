@@ -21,6 +21,7 @@ import {
   Target,
   TriangleAlert,
   WalletMinimal,
+  WifiOff,
 } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -41,6 +42,7 @@ const QUICK_START = [
 const TOC: { id: string; label: string }[] = [
   { id: 'hom-nay', label: 'Thẻ Hôm nay' },
   { id: 'ghi', label: 'Ghi giao dịch' },
+  { id: 'mat-mang', label: 'Mất mạng' },
   { id: 'dinh-ky', label: 'Khoản định kỳ' },
   { id: 'ngan-sach', label: 'Ngân sách' },
   { id: 'canh-bao', label: 'Cảnh báo' },
@@ -170,6 +172,36 @@ export default function GuidePage() {
             <>
               Trên Android, <strong>chạm giữ biểu tượng app</strong> để vào thẳng “Ghi khoản chi” hoặc “Ghi khoản thu”.
             </>,
+          ]}
+        />
+      </Section>
+
+      <Section id="mat-mang" icon={WifiOff} title="Mất mạng khi đang ghi">
+        <p>
+          Sóng yếu hay mạng rớt đúng lúc bạn bấm <strong>Lưu</strong> thì <strong>không cần nhập lại</strong>: app giữ khoản bạn vừa nhập và tự gửi khi có mạng.
+        </p>
+        <Steps
+          items={[
+            <>
+              Mất mạng thì đầu màn hình hiện dải <strong>“Đang mất mạng · sẽ tự gửi khi có mạng”</strong>. Nút Lưu chờ, đó là bình thường.
+            </>,
+            <>
+              <strong>Giữ app mở</strong> trong lúc chờ, đừng vuốt đóng.
+            </>,
+            <>
+              Có mạng lại, app tự gửi lên. Bạn thấy thông báo đã ghi, cảnh báo ngân sách và nút Hoàn tác như mọi lần.
+            </>,
+          ]}
+        />
+        <Points
+          items={[
+            <>
+              <strong>Tắt hẳn app lúc đang chờ thì khoản chưa gửi sẽ mất.</strong> Máy ít bộ nhớ có thể tự đóng app khi bạn mở app khác lâu. Nếu vừa mất mạng,
+              hãy chờ thông báo đã ghi trước khi thoát.
+            </>,
+            'Khoản chưa gửi lên chưa nằm trong danh sách giao dịch và chưa tính vào số liệu. Nghi ngờ thì mở Thu chi kiểm tra lại.',
+            'Mở app khi không có mạng thì chưa xem được số liệu, vì dữ liệu được tải từ máy chủ mỗi lần mở.',
+            'Hiếm khi mạng rớt đúng lúc máy chủ đã nhận xong, một khoản có thể được ghi hai lần. Nếu thấy trùng, mở khoản đó và xoá bớt một.',
           ]}
         />
       </Section>
@@ -509,7 +541,8 @@ export default function GuidePage() {
             Được. Đăng nhập cùng tài khoản trên điện thoại và máy tính, dữ liệu luôn giống nhau. Giao diện sáng/tối thì chọn riêng trên từng máy.
           </Faq>
           <Faq q="Mất mạng có ghi được không?">
-            Hiện tại cần có mạng để lưu. Nếu mạng chập chờn, hãy bấm Lưu lại khi có sóng.
+            Được nếu app còn mở: khoản bạn nhập được giữ lại và tự gửi khi có mạng. Tắt app lúc đang chờ thì khoản đó mất. Xem mục{' '}
+            <a href="#mat-mang" className="font-medium text-brand-ink hover:underline">Mất mạng khi đang ghi</a>.
           </Faq>
         </div>
       </Section>

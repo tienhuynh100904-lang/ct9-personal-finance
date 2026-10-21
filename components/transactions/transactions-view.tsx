@@ -1,20 +1,22 @@
 'use client'
 
-import { Download, Inbox, SlidersHorizontal, Upload } from 'lucide-react'
+import { Download, Inbox, SlidersHorizontal, Upload, X } from 'lucide-react'
 import { useId, useLayoutEffect, useMemo, useState } from 'react'
 import { MonthSwitcher, useMonthParam, type MonthValue } from '@/components/app/period'
+import { ItemColumns } from '@/components/charts/item-columns'
 import { Button } from '@/components/ui/button'
+import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { toast } from '@/lib/toast'
 import { Segmented } from '@/components/ui/choice'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Popover } from '@/components/ui/popover'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
-import { CATEGORY_META, KIND_LABEL } from '@/lib/categories'
+import { CATEGORY_META, KIND_LABEL, MEASURE_COLOR } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import { openComposer } from '@/lib/composer'
 import { buildTransactionsCsv, csvFileName } from '@/lib/csv'
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, monthOf, type Category, type Kind } from '@/lib/finance'
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, monthOf, topExpenseItems, type Category, type Kind } from '@/lib/finance'
 import { formatDate, formatSignedVND, formatVND, formatWeekday, normalizeText } from '@/lib/format'
 import type { TransactionRecord } from '@/lib/types'
 import { ImportCsvDialog } from './import-csv-dialog'
@@ -55,6 +57,7 @@ export function TransactionsView({
   const [month, setMonth] = useMonthParam(defaultMonth)
   const [kind, setKind] = useState<'all' | Kind>('all')
   const [category, setCategory] = useState<'all' | Category>('all')
+  const [item, setItem] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -69,7 +72,8 @@ export function TransactionsView({
     [transactions, month],
   )
 
-  const filtered = useMemo(() => {
+  // Everything except the item filter: the chart is drawn from this, so picking a bar does not collapse it to one bar.
+  const matching = useMemo(() => {
     const q = normalizeText(query.trim())
     return inPeriod.filter(
       (t) =>
@@ -78,6 +82,15 @@ export function TransactionsView({
         (!q || normalizeText(`${t.item} ${t.note ?? ''}`).includes(q)),
     )
   }, [inPeriod, kind, category, query])
+
+  const itemTotals = useMemo(() => topExpenseItems(matching, year, { includeSaving: category === 'saving' }), [matching, year, category])
+  // A picked item that is no longer in the chart (other month, other filters) stops filtering.
+  const activeItem = item !== null && itemTotals.some((entry) => entry.item === item) ? item : null
+
+  const filtered = useMemo(
+    () => (activeItem === null ? matching : matching.filter((t) => t.kind === 'expense' && t.item === activeItem)),
+    [matching, activeItem],
+  )
 
   const totals = useMemo(() => {
     let income = 0
@@ -104,7 +117,7 @@ export function TransactionsView({
   const categoryOptions: Category[] =
     kind === 'income' ? [...INCOME_CATEGORIES] : kind === 'expense' ? [...EXPENSE_CATEGORIES] : [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES]
   const periodLabel = month === 'all' ? `năm ${year}` : `tháng ${month}/${year}`
-  const hasFilters = kind !== 'all' || category !== 'all' || query.trim() !== ''
+  const hasFilters = kind !== 'all' || category !== 'all' || query.trim() !== '' || activeItem !== null
   const activeFilters = (kind !== 'all' ? 1 : 0) + (category !== 'all' ? 1 : 0)
 
   return (
@@ -195,10 +208,41 @@ export function TransactionsView({
         ))}
       </div>
 
+      {itemTotals.length > 0 ? (
+        <Card>
+          <CardHeader
+            title="Chi tiêu theo khoản mục"
+            description={
+              <>
+                <span className="max-sm:hidden">{periodLabel} · </span>
+                bấm vào cột để lọc giao dịch
+              </>
+            }
+            action={
+              activeItem !== null ? (
+                <Button variant="secondary" size="sm" onClick={() => setItem(null)}>
+                  <X className="size-4" aria-hidden />
+                  {activeItem}
+                </Button>
+              ) : null
+            }
+          />
+          <CardBody className="pt-3 sm:pt-3">
+            <ItemColumns
+              items={itemTotals}
+              color={MEASURE_COLOR.spending}
+              selected={activeItem}
+              onSelect={setItem}
+              label={`Chi tiêu theo khoản mục, ${periodLabel}`}
+            />
+          </CardBody>
+        </Card>
+      ) : null}
+
       <div className="rounded-2xl border border-line bg-surface shadow-[var(--shadow-1)]">
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
-          <p className="text-sm text-muted">
-            <span className="font-medium text-ink">{filtered.length}</span> giao dịch · {periodLabel}
+          <p className="text-sm whitespace-nowrap text-muted">
+            <span className="font-medium text-ink">{filtered.length}</span> giao dịch<span className="max-sm:hidden"> · {periodLabel}</span>
           </p>
           <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)}>
@@ -259,6 +303,7 @@ export function TransactionsView({
                   onClick={() => {
                     setKind('all')
                     setCategory('all')
+                    setItem(null)
                     setQuery('')
                   }}
                 >

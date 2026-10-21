@@ -1,6 +1,6 @@
 'use client'
 
-import { CalendarClock, Check, ChevronDown, CircleAlert, CircleCheck, LoaderCircle, Landmark, Pencil, Plus, RefreshCw, Trash2, Undo2 } from 'lucide-react'
+import { CalendarClock, Check, ChevronDown, ChevronRight, CircleAlert, CircleCheck, LoaderCircle, Landmark, Pencil, Plus, RefreshCw, Trash2, Undo2 } from 'lucide-react'
 import { useMemo, useState, useTransition } from 'react'
 import { AmountInput } from '@/components/ui/amount-input'
 import { Button } from '@/components/ui/button'
@@ -65,8 +65,10 @@ export function DepositsSection({ deposits, pool, today }: { deposits: DepositRe
   const views = useMemo(() => sortedDeposits(deposits, today), [deposits, today])
   const summary = useMemo(() => summarizeDeposits(deposits, today), [deposits, today])
   const closed = views.filter((v) => v.state === 'closed')
+  const closedInterest = closed.reduce((sum, v) => sum + v.interest, 0)
   const over = depositsOverSavings(summary.principal, pool.saved, pool.spent)
 
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [form, setForm] = useState<FormState>({ open: false, deposit: null })
   const [renewing, setRenewing] = useState<DepositView | null>(null)
   const [deleting, setDeleting] = useState<DepositRecord | null>(null)
@@ -169,18 +171,51 @@ export function DepositsSection({ deposits, pool, today }: { deposits: DepositRe
         )}
 
         {closed.length > 0 ? (
-          <details className="group rounded-2xl border border-line bg-surface">
-            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <>
+            {/* Phones: a bottom sheet with one card per deposit. From `sm`: the table, expanded in place. */}
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left text-sm font-medium active:bg-surface-2 sm:hidden"
+            >
               <span className="min-w-0">
                 Lịch sử đã tất toán ({closed.length})
-                <span className="font-normal text-muted"> · tổng lãi {formatVND(closed.reduce((sum, v) => sum + v.interest, 0))}</span>
+                <span className="block text-xs font-normal text-muted">Tổng lãi {formatVND(closedInterest)}</span>
               </span>
-              <ChevronDown className="size-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" aria-hidden />
-            </summary>
-            <HistoryTable views={closed} busy={pending} onReopen={(id) => startTransition(() => reopen(id))} onDelete={setDeleting} />
-          </details>
+              <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+            </button>
+            <details className="group hidden rounded-2xl border border-line bg-surface sm:block">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0">
+                  Lịch sử đã tất toán ({closed.length})
+                  <span className="font-normal text-muted"> · tổng lãi {formatVND(closedInterest)}</span>
+                </span>
+                <ChevronDown className="size-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" aria-hidden />
+              </summary>
+              <HistoryTable views={closed} busy={pending} onReopen={(id) => startTransition(() => reopen(id))} onDelete={setDeleting} />
+            </details>
+          </>
         ) : null}
       </section>
+
+      <Dialog
+        open={historyOpen && closed.length > 0}
+        onClose={() => setHistoryOpen(false)}
+        title="Lịch sử đã tất toán"
+        description={`${closed.length} khoản · tổng lãi ${formatVND(closedInterest)}`}
+      >
+        <DialogBody className="space-y-3 pt-2">
+          {closed.map((view) => (
+            <HistoryCard
+              key={view.deposit.id}
+              view={view}
+              busy={pending}
+              onReopen={() => startTransition(() => reopen(view.deposit.id))}
+              onDelete={() => setDeleting(view.deposit)}
+            />
+          ))}
+        </DialogBody>
+      </Dialog>
 
       <DepositFormDialog open={form.open} deposit={form.deposit} onClose={() => setForm((f) => ({ ...f, open: false }))} />
       <RenewDialog view={renewing} onClose={() => setRenewing(null)} />
@@ -273,8 +308,9 @@ function DepositCard({
 
 /**
  * Every settled deposit with all its figures side by side, so deposits can be compared later
- * (which bank, rate or term paid best). A table that scrolls sideways on a phone, with the name
- * column pinned. Interest is what the entered rate pays over the full term.
+ * (which bank, rate or term paid best). Shown from `sm`; phones get <HistoryCard>s in a sheet instead.
+ * The table scrolls sideways when narrow, with the name column pinned. Interest is what the entered
+ * rate pays over the full term.
  */
 function HistoryTable({
   views,
@@ -365,6 +401,62 @@ function HistoryTable({
         </tbody>
       </table>
     </div>
+  )
+}
+
+/** One settled deposit as a card, for the phone sheet: the same figures as a table row, stacked. */
+function HistoryCard({ view, busy, onReopen, onDelete }: { view: DepositView; busy: boolean; onReopen: () => void; onDelete: () => void }) {
+  const { deposit } = view
+  const early = deposit.closed_on !== null && deposit.closed_on < view.maturity
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-[15px] font-semibold tracking-tight">{deposit.name}</h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Kỳ hạn {termLabel(deposit.term_months)}
+            {deposit.rate_bp > 0 ? ` · ${bpToPercent(deposit.rate_bp)}%/năm` : ''}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[15px] font-semibold tabular-nums">{formatVND(view.payout)}</p>
+          <p className="text-xs text-muted tabular-nums">{view.interest > 0 ? `lãi +${formatVND(view.interest)}` : 'không có lãi'}</p>
+        </div>
+      </div>
+      {deposit.note ? <p className="mt-1.5 line-clamp-2 text-xs text-muted">{deposit.note}</p> : null}
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+        <div>
+          <dt className="text-xs text-muted">Số tiền gửi</dt>
+          <dd className="tabular-nums">{formatVND(deposit.principal)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Ngày gửi</dt>
+          <dd className="tabular-nums">{formatDate(deposit.start_date)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Đáo hạn</dt>
+          <dd className="tabular-nums">{formatDate(view.maturity)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Tất toán</dt>
+          <dd className="tabular-nums">
+            {deposit.closed_on ? formatDate(deposit.closed_on) : '—'}
+            {early ? <span className="ml-1.5 rounded-full bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">trước hạn</span> : null}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-3 flex items-center gap-1">
+        <Button size="sm" variant="ghost" disabled={busy} onClick={onReopen}>
+          <Undo2 className="size-3.5" aria-hidden />
+          Mở lại
+        </Button>
+        <Button size="icon-sm" variant="danger-ghost" onClick={onDelete} className="ml-auto" aria-label={`Xoá ${deposit.name}`} title="Xoá khoản tiết kiệm">
+          <Trash2 className="size-4" aria-hidden />
+        </Button>
+      </div>
+    </Card>
   )
 }
 
