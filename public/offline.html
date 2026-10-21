@@ -1,0 +1,785 @@
+<!doctype html>
+<!--
+  "Ghi offline": served by the service worker (public/sw.js) when a page cannot be loaded because
+  there is no network. Saves entries in IndexedDB (public/offline-db.js); the service worker sends
+  them once the network is back. Plain HTML/JS on purpose: it must work with no server and no app
+  bundle. Category codes and labels mirror lib/categories.ts (tests/offline-sync.test.ts checks
+  they stay in step). See docs/ghi-offline.md.
+-->
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f6f3" />
+    <meta name="robots" content="noindex" />
+    <title>Ghi nhanh offline · CT9 Finance</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <script>
+      ;(function () {
+        var pref = 'light'
+        try {
+          pref = localStorage.getItem('ct9-theme') || 'light'
+        } catch (e) {}
+        var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', dark ? '#0d0d0d' : '#f6f6f3')
+      })()
+    </script>
+    <style>
+      :root,
+      [data-theme='light'] {
+        color-scheme: light;
+        --bg: #f6f6f3;
+        --surface: #ffffff;
+        --surface-2: #f3f3ef;
+        --surface-3: #e9e8e2;
+        --ink: #0b0b0b;
+        --ink-2: #52514e;
+        --muted: #66655f;
+        --line: rgba(11, 11, 11, 0.1);
+        --line-strong: rgba(11, 11, 11, 0.2);
+        --field-border: #8a8983;
+        --brand: #fcd34d;
+        --brand-hover: #f6c22a;
+        --on-brand: #1c1500;
+        --brand-soft: #fdf4d3;
+        --brand-ink: #7a5200;
+        --focus: #7a5200;
+        --positive: #006300;
+        --negative: #c4362f;
+        --warning: #8a5d00;
+        --warning-soft: #fdf1d6;
+        --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.04), 0 1px 1px rgba(11, 11, 11, 0.03);
+      }
+      [data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #0d0d0d;
+        --surface: #1a1a19;
+        --surface-2: #232321;
+        --surface-3: #2e2e2b;
+        --ink: #f0efec;
+        --ink-2: #c3c2b7;
+        --muted: #9c9a94;
+        --line: rgba(255, 255, 255, 0.1);
+        --line-strong: rgba(255, 255, 255, 0.2);
+        --field-border: #6b6a65;
+        --brand: #f7c948;
+        --brand-hover: #ffd966;
+        --on-brand: #1c1500;
+        --brand-soft: #2b2410;
+        --brand-ink: #f7cf6a;
+        --focus: #f7c948;
+        --positive: #0ca30c;
+        --negative: #e66767;
+        --warning: #fab219;
+        --warning-soft: #2e2510;
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.45;
+        -webkit-text-size-adjust: 100%;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      .wrap {
+        max-width: 32rem;
+        margin: 0 auto;
+        padding: calc(env(safe-area-inset-top) + 12px) max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 32px)
+          max(16px, env(safe-area-inset-left));
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 48px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .brand img {
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 13px;
+        font-weight: 600;
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+      .pill::before {
+        content: '';
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .pill.online {
+        background: var(--surface-2);
+        color: var(--positive);
+      }
+      .card {
+        margin-top: 12px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        padding: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 19px;
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .sub {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      label,
+      .label {
+        display: block;
+        margin: 16px 0 6px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .segmented {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        margin-top: 14px;
+        padding: 4px;
+        border-radius: 12px;
+        background: var(--surface-2);
+      }
+      .segmented button {
+        min-height: 40px;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        font-weight: 600;
+        color: var(--ink-2);
+        cursor: pointer;
+      }
+      .segmented button[aria-checked='true'] {
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: var(--shadow-1);
+      }
+      .field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        border: 1px solid var(--field-border);
+        border-radius: 12px;
+        background: var(--surface);
+        padding: 0 12px;
+      }
+      .field:focus-within {
+        outline: 3px solid color-mix(in oklab, var(--focus) 30%, transparent);
+        border-color: var(--focus);
+      }
+      .field input,
+      .field select,
+      .field textarea {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        padding: 10px 0;
+      }
+      .amount input {
+        font-size: 22px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .suffix {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .chip {
+        min-height: 36px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--surface);
+        padding: 0 14px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .chip[aria-pressed='true'] {
+        border-color: var(--brand-ink);
+        background: var(--brand-soft);
+        color: var(--brand-ink);
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .hint {
+        margin: 8px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .error {
+        margin: 12px 0 0;
+        font-size: 14px;
+        color: var(--negative);
+      }
+      .primary {
+        width: 100%;
+        min-height: 48px;
+        margin-top: 18px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--brand);
+        color: var(--on-brand);
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .primary:active {
+        background: var(--brand-hover);
+      }
+      .secondary {
+        min-height: 40px;
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        background: var(--surface);
+        padding: 0 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .queue-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      ul.queue {
+        list-style: none;
+        margin: 10px 0 0;
+        padding: 0;
+      }
+      ul.queue li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-top: 1px solid var(--line);
+      }
+      .q-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .q-title {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .q-meta {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .q-meta.bad {
+        color: var(--negative);
+      }
+      .q-amount {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .q-delete {
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 20px;
+        cursor: pointer;
+      }
+      .notice {
+        background: var(--brand-soft);
+        border-color: transparent;
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(env(safe-area-inset-bottom) + 20px);
+        transform: translateX(-50%);
+        max-width: calc(100% - 32px);
+        border-radius: 12px;
+        background: var(--ink);
+        color: var(--surface);
+        padding: 12px 16px;
+        font-size: 14px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <span class="brand"><img src="/icon.svg" alt="" />CT9 Finance</span>
+        <span id="net" class="pill" role="status">Đang mất mạng</span>
+      </header>
+
+      <section id="online-card" class="card notice" hidden>
+        <div class="queue-head">
+          <span>Đã có mạng trở lại.</span>
+          <button id="open-app" class="secondary" type="button">Mở app</button>
+        </div>
+      </section>
+
+      <section id="no-snapshot" class="card notice" hidden>
+        Máy này chưa có danh sách khoản mục. Hãy mở app một lần khi có mạng (đã đăng nhập), sau đó có thể ghi khi mất mạng.
+      </section>
+
+      <form id="form" class="card" novalidate>
+        <h1>Ghi nhanh khi mất mạng</h1>
+        <p class="sub">Khoản ghi được lưu trên máy và tự gửi lên khi có mạng.</p>
+
+        <div class="segmented" role="radiogroup" aria-label="Loại giao dịch">
+          <button type="button" role="radio" data-kind="expense" aria-checked="true">Chi</button>
+          <button type="button" role="radio" data-kind="income" aria-checked="false">Thu</button>
+        </div>
+
+        <label for="amount">Số tiền</label>
+        <div class="field amount">
+          <input id="amount" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="form-error" />
+          <span class="suffix">₫</span>
+          <button id="add-000" class="chip" type="button" aria-label="Thêm ba số 0">000</button>
+        </div>
+
+        <label for="item-search">Khoản mục</label>
+        <div class="field">
+          <input id="item-search" type="search" autocomplete="off" placeholder="Tìm khoản mục, không cần gõ dấu" />
+        </div>
+        <div id="items" class="items" role="group" aria-label="Chọn khoản mục"></div>
+        <p id="items-hint" class="hint" hidden></p>
+
+        <label for="category">Phân loại</label>
+        <div class="field">
+          <select id="category"></select>
+        </div>
+
+        <span class="label" id="date-label">Ngày</span>
+        <div class="row" role="group" aria-labelledby="date-label">
+          <button id="date-today" class="chip" type="button" aria-pressed="true">Hôm nay</button>
+          <button id="date-yesterday" class="chip" type="button" aria-pressed="false">Hôm qua</button>
+          <div class="field" style="min-height: 36px; flex: 1; min-width: 150px">
+            <input id="date" type="date" min="2000-01-01" max="2100-12-31" aria-label="Ngày khác" />
+          </div>
+        </div>
+
+        <label for="note">Ghi chú</label>
+        <div class="field">
+          <textarea id="note" rows="2" maxlength="500" placeholder="Không bắt buộc"></textarea>
+        </div>
+
+        <p id="form-error" class="error" role="alert" hidden></p>
+        <button class="primary" type="submit">Lưu trên máy</button>
+      </form>
+
+      <section class="card" aria-labelledby="queue-title">
+        <div class="queue-head">
+          <h2 id="queue-title">Chờ gửi (0)</h2>
+          <button id="send-now" class="secondary" type="button" hidden>Gửi ngay</button>
+        </div>
+        <p id="sync-note" class="hint" hidden></p>
+        <p id="queue-empty" class="hint">Chưa có khoản nào chờ gửi.</p>
+        <ul id="queue" class="queue"></ul>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+
+    <script src="/offline-db.js"></script>
+    <script>
+      ;(function () {
+        var CATEGORIES = {
+          expense: [
+            ['essential', 'Thiết yếu'],
+            ['non_essential', 'Không thiết yếu'],
+            ['incidental', 'Phát sinh'],
+            ['saving', 'Tiết kiệm/Đầu tư'],
+          ],
+          income: [
+            ['main', 'Thu nhập chính'],
+            ['side', 'Thu nhập phụ'],
+            ['irregular', 'Thu nhập bất thường'],
+          ],
+        }
+        var MAX_AMOUNT = 999999999999
+        var ITEMS_SHOWN = 12
+        var store = window.CT9Offline
+        var $ = function (id) {
+          return document.getElementById(id)
+        }
+        var money = new Intl.NumberFormat('vi-VN')
+        var dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' })
+
+        var state = {
+          kind: new URLSearchParams(location.search).get('add') === 'income' ? 'income' : 'expense',
+          snapshot: null,
+          item: null,
+          date: '',
+        }
+
+        function todayISO() {
+          return dayFormat.format(new Date())
+        }
+        function addDays(iso, days) {
+          var d = new Date(iso + 'T00:00:00Z')
+          d.setUTCDate(d.getUTCDate() + days)
+          return d.toISOString().slice(0, 10)
+        }
+        function formatDay(iso) {
+          var p = iso.split('-')
+          return p[2] + '/' + p[1] + '/' + p[0]
+        }
+        function normalize(text) {
+          return text.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+        }
+        function categoryLabel(code) {
+          var all = CATEGORIES.expense.concat(CATEGORIES.income)
+          for (var i = 0; i < all.length; i++) if (all[i][0] === code) return all[i][1]
+          return code
+        }
+        function uuid() {
+          if (window.crypto && crypto.randomUUID) return crypto.randomUUID()
+          var b = crypto.getRandomValues(new Uint8Array(16))
+          b[6] = (b[6] & 0x0f) | 0x40
+          b[8] = (b[8] & 0x3f) | 0x80
+          var h = Array.prototype.map.call(b, function (x) {
+            return (x + 0x100).toString(16).slice(1)
+          }).join('')
+          return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20)
+        }
+
+        var toastTimer = null
+        function toast(text) {
+          var el = $('toast')
+          el.textContent = text
+          el.hidden = false
+          clearTimeout(toastTimer)
+          toastTimer = setTimeout(function () {
+            el.hidden = true
+          }, 3500)
+        }
+
+        // ---- Network state ----
+        function renderNet() {
+          var online = navigator.onLine
+          var pill = $('net')
+          pill.textContent = online ? 'Đã có mạng' : 'Đang mất mạng'
+          pill.className = online ? 'pill online' : 'pill'
+          $('online-card').hidden = !online
+          $('send-now').hidden = !online
+        }
+        window.addEventListener('online', function () {
+          renderNet()
+          askToSend()
+        })
+        window.addEventListener('offline', renderNet)
+        $('open-app').addEventListener('click', function () {
+          location.href = '/'
+        })
+
+        // ---- Kind, category, items ----
+        function renderKind() {
+          var buttons = document.querySelectorAll('[data-kind]')
+          for (var i = 0; i < buttons.length; i++) buttons[i].setAttribute('aria-checked', String(buttons[i].dataset.kind === state.kind))
+          var select = $('category')
+          select.innerHTML = ''
+          CATEGORIES[state.kind].forEach(function (pair) {
+            var option = document.createElement('option')
+            option.value = pair[0]
+            option.textContent = pair[1]
+            select.appendChild(option)
+          })
+        }
+        function pickCategory(code) {
+          var valid = CATEGORIES[state.kind].some(function (pair) {
+            return pair[0] === code
+          })
+          $('category').value = valid ? code : CATEGORIES[state.kind][0][0]
+        }
+        function renderItems() {
+          var box = $('items')
+          var hint = $('items-hint')
+          box.innerHTML = ''
+          if (!state.snapshot) {
+            hint.hidden = true
+            return
+          }
+          var query = normalize($('item-search').value.trim())
+          var matches = state.snapshot.items.filter(function (item) {
+            return item.kind === state.kind && (!query || normalize(item.name).indexOf(query) !== -1)
+          })
+          // Keep the chosen item visible even when it is not among the first ones.
+          var shown = matches.slice(0, ITEMS_SHOWN)
+          if (state.item && shown.indexOf(state.item) === -1 && matches.indexOf(state.item) !== -1) shown.unshift(state.item)
+          shown.forEach(function (item) {
+            var button = document.createElement('button')
+            button.type = 'button'
+            button.className = 'chip'
+            button.textContent = item.name
+            button.setAttribute('aria-pressed', String(state.item === item))
+            button.addEventListener('click', function () {
+              state.item = state.item === item ? null : item
+              if (state.item) pickCategory(item.category)
+              renderItems()
+            })
+            box.appendChild(button)
+          })
+          if (matches.length === 0) {
+            hint.textContent = query
+              ? 'Không có khoản mục này trên máy. Khoản mục mới chỉ tạo được trong app khi có mạng.'
+              : 'Chưa có khoản mục nào cho loại này.'
+            hint.hidden = false
+          } else if (matches.length > shown.length) {
+            hint.textContent = 'Gõ để tìm thêm ' + (matches.length - shown.length) + ' khoản mục.'
+            hint.hidden = false
+          } else {
+            hint.hidden = true
+          }
+        }
+        document.querySelectorAll('[data-kind]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            if (state.kind === button.dataset.kind) return
+            state.kind = button.dataset.kind
+            state.item = null
+            renderKind()
+            renderItems()
+          })
+        })
+        $('item-search').addEventListener('input', renderItems)
+
+        // ---- Amount ----
+        function amountValue() {
+          var digits = $('amount').value.replace(/\D/g, '')
+          return digits ? Number(digits) : 0
+        }
+        function showAmount(value) {
+          $('amount').value = value > 0 ? money.format(value) : ''
+        }
+        $('amount').addEventListener('input', function () {
+          showAmount(Math.min(amountValue(), MAX_AMOUNT))
+        })
+        $('add-000').addEventListener('click', function () {
+          var value = amountValue()
+          if (value > 0 && value * 1000 <= MAX_AMOUNT) showAmount(value * 1000)
+          $('amount').focus()
+        })
+
+        // ---- Date ----
+        function setDate(iso) {
+          state.date = iso
+          var today = todayISO()
+          $('date').value = iso
+          $('date-today').setAttribute('aria-pressed', String(iso === today))
+          $('date-yesterday').setAttribute('aria-pressed', String(iso === addDays(today, -1)))
+        }
+        $('date-today').addEventListener('click', function () {
+          setDate(todayISO())
+        })
+        $('date-yesterday').addEventListener('click', function () {
+          setDate(addDays(todayISO(), -1))
+        })
+        $('date').addEventListener('change', function () {
+          if ($('date').value) setDate($('date').value)
+        })
+
+        // ---- Save ----
+        function fail(message) {
+          var el = $('form-error')
+          el.textContent = message
+          el.hidden = false
+        }
+        $('form').addEventListener('submit', function (event) {
+          event.preventDefault()
+          $('form-error').hidden = true
+          if (!store) return fail('Trình duyệt này không lưu được dữ liệu offline.')
+          if (!state.snapshot) return fail('Máy này chưa có danh sách khoản mục. Hãy mở app một lần khi có mạng.')
+          var amount = amountValue()
+          if (!(amount > 0 && amount <= MAX_AMOUNT)) return fail('Nhập số tiền lớn hơn 0.')
+          if (!state.item) return fail('Chọn khoản mục.')
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(state.date) || state.date < '2000-01-01' || state.date > '2100-12-31') return fail('Ngày không hợp lệ.')
+          var note = $('note').value.trim()
+          if (note.length > 500) return fail('Ghi chú tối đa 500 ký tự.')
+
+          var entry = {
+            id: uuid(),
+            user_id: state.snapshot.userId,
+            kind: state.kind,
+            item_id: state.item.id,
+            item_name: state.item.name,
+            category: $('category').value,
+            amount: amount,
+            occurred_on: state.date,
+            note: note || null,
+            created_at: new Date().toISOString(),
+            status: 'pending',
+          }
+          store
+            .putEntry(entry)
+            .then(function () {
+              showAmount(0)
+              $('note').value = ''
+              $('item-search').value = ''
+              state.item = null
+              renderItems()
+              toast('Đã lưu trên máy. Sẽ tự gửi khi có mạng.')
+              renderQueue()
+              askToSend()
+            })
+            .catch(function () {
+              fail('Không lưu được trên máy. Bộ nhớ có thể đã đầy.')
+            })
+        })
+
+        // ---- Queue ----
+        function statusText(entry) {
+          if (entry.status === 'pending') return { text: 'Chờ gửi', bad: false }
+          if (entry.status === 'other_account') return { text: entry.error || 'Thuộc tài khoản khác', bad: true }
+          return { text: 'Không gửi được: ' + (entry.error || 'lỗi không rõ'), bad: true }
+        }
+        function renderQueue() {
+          if (!store) return
+          Promise.all([store.listQueue(), store.getMeta('sync')]).then(function (results) {
+            var entries = results[0]
+            var sync = results[1]
+            $('queue-title').textContent = 'Chờ gửi (' + entries.length + ')'
+            $('queue-empty').hidden = entries.length > 0
+            var hasPending = entries.some(function (e) {
+              return e.status === 'pending'
+            })
+            var note = $('sync-note')
+            note.hidden = !(sync && sync.needsLogin && hasPending)
+            note.textContent = 'Cần đăng nhập để gửi. Khi có mạng, mở app và đăng nhập, các khoản sẽ tự gửi.'
+            var list = $('queue')
+            list.innerHTML = ''
+            entries.forEach(function (entry) {
+              var li = document.createElement('li')
+              var main = document.createElement('div')
+              main.className = 'q-main'
+              var title = document.createElement('div')
+              title.className = 'q-title'
+              title.textContent = entry.item_name
+              var meta = document.createElement('div')
+              var status = statusText(entry)
+              meta.className = status.bad ? 'q-meta bad' : 'q-meta'
+              meta.textContent = formatDay(entry.occurred_on) + ' · ' + categoryLabel(entry.category) + ' · ' + status.text
+              main.appendChild(title)
+              main.appendChild(meta)
+              var amount = document.createElement('span')
+              amount.className = 'q-amount'
+              amount.textContent = (entry.kind === 'income' ? '+' : '−') + money.format(entry.amount) + ' ₫'
+              var remove = document.createElement('button')
+              remove.type = 'button'
+              remove.className = 'q-delete'
+              remove.textContent = '×'
+              remove.setAttribute('aria-label', 'Xoá ' + entry.item_name + ' khỏi danh sách chờ')
+              remove.addEventListener('click', function () {
+                if (!confirm('Xoá khoản “' + entry.item_name + '” khỏi danh sách chờ? Khoản này sẽ không được gửi.')) return
+                store.removeEntry(entry.id).then(renderQueue)
+              })
+              li.appendChild(main)
+              li.appendChild(amount)
+              li.appendChild(remove)
+              list.appendChild(li)
+            })
+          })
+        }
+
+        /** Background Sync where supported (Android Chrome), and a direct request when online. */
+        function askToSend() {
+          if (!('serviceWorker' in navigator)) return
+          navigator.serviceWorker.ready
+            .then(function (registration) {
+              if (registration.sync) registration.sync.register('ct9-flush').catch(function () {})
+              if (navigator.onLine && registration.active) registration.active.postMessage({ type: 'ct9-flush' })
+            })
+            .catch(function () {})
+        }
+        $('send-now').addEventListener('click', askToSend)
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.addEventListener('message', function (event) {
+            var data = event.data || {}
+            if (data.type !== 'ct9-sync') return
+            renderQueue()
+            if (data.sent > 0) toast('Đã gửi ' + data.sent + ' khoản lên máy chủ.')
+          })
+        }
+
+        // ---- Start ----
+        renderNet()
+        renderKind()
+        setDate(todayISO())
+        if (!store) {
+          fail('Trình duyệt này không lưu được dữ liệu offline.')
+          return
+        }
+        store
+          .getMeta('snapshot')
+          .then(function (snapshot) {
+            state.snapshot = snapshot && snapshot.userId && Array.isArray(snapshot.items) ? snapshot : null
+            $('no-snapshot').hidden = Boolean(state.snapshot)
+            renderItems()
+          })
+          .catch(function () {
+            $('no-snapshot').hidden = false
+          })
+        renderQueue()
+        if (navigator.onLine) askToSend()
+      })()
+    </script>
+  </body>
+</html>

@@ -2,7 +2,7 @@
 
 import { Eye, EyeOff, LockKeyhole, LogIn, Mail } from 'lucide-react'
 import Link from 'next/link'
-import { useActionState, useLayoutEffect, useRef, useState } from 'react'
+import { useActionState, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AuthAlert, CoinSpinner, FieldIcon } from '@/components/app/auth-ui'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
@@ -24,6 +24,11 @@ export function LoginForm() {
   const [state, formAction, pending] = useActionState(signIn, initialState)
   const [showPassword, setShowPassword] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+
+  // Signed out on this device: the offline page should no longer list the previous account's items.
+  useEffect(() => {
+    navigator.serviceWorker?.controller?.postMessage({ type: 'ct9-forget' })
+  }, [])
 
   // Next.js keeps this page mounted (hidden) after signing in; don't leave the password in the DOM.
   useLayoutEffect(() => {

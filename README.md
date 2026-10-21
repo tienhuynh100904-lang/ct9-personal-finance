@@ -77,6 +77,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 Đổi biến môi trường sau này thì phải **Redeploy** (biến `NEXT_PUBLIC_` được đóng gói lúc build).
 
+Hàm máy chủ của Vercel được đặt ở **Singapore (`sin1`)** trong [`vercel.json`](vercel.json), cùng vùng với Supabase (`ap-southeast-1`). Nếu Supabase của bạn ở vùng khác, đổi `regions` cho khớp: hai bên lệch vùng làm mỗi lần mở trang và mỗi lần lưu chậm thêm hàng trăm ms. Kiểm tra sau khi deploy: `curl -sI https://<tên-miền>/auth/confirm | grep -i x-vercel-id` phải ra `sin1::sin1::…`.
+
 Trên điện thoại: mở trang web → *Thêm vào màn hình chính* để dùng như app.
 
 > Supabase gói miễn phí sẽ **tạm dừng project sau 7 ngày không có truy cập**; khi đó app báo "Không tải được dữ liệu" — vào dashboard Supabase bấm *Restore*.
@@ -96,6 +98,10 @@ Nếu giữ mẫu mặc định (`{{ .ConfirmationURL }}`) thì liên kết ch�
 ## 5. Nhắc ghi chép mỗi ngày (thông báo đẩy, tuỳ chọn)
 
 **Cài đặt → Nhắc ghi chép**: bật/tắt, chọn giờ; mỗi ngày một thông báo (ngẫu nhiên trong 10 câu, không lặp lại câu hôm qua), tự bỏ qua nếu hôm nay bạn đã ghi chép. Cần thêm khoá VAPID, bật `pg_cron` + `pg_net` trong Supabase và đặt lịch. Hướng dẫn cài đặt, cách test và xử lý sự cố: **[docs/nhac-ghi-chep.md](docs/nhac-ghi-chep.md)**.
+
+## 6. Ghi khi mất mạng
+
+Mở app khi không có mạng thì có trang **Ghi nhanh khi mất mạng**: khoản ghi được lưu trên điện thoại và tự gửi lên khi có mạng (Android gửi cả khi app đã đóng). Không cần cấu hình thêm. Cách hoạt động, API, cách test và xử lý sự cố: **[docs/ghi-offline.md](docs/ghi-offline.md)**.
 
 ## Lệnh hữu ích
 

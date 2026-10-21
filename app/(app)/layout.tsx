@@ -2,9 +2,12 @@ import { unstable_rethrow } from 'next/navigation'
 import { Suspense } from 'react'
 import { Logo } from '@/components/app/logo'
 import { AddTransactionButton, BottomNav, SidebarNav, TopBarLinks } from '@/components/app/navigation'
+import { OfflineSupport } from '@/components/app/offline-support'
 import { UserMenu, UserMenuFallback } from '@/components/app/user-menu'
 import { TransactionComposer } from '@/components/transactions/composer'
+import { getSession } from '@/lib/auth'
 import { getItems, getItemUsage } from '@/lib/data'
+import { buildOfflineSnapshot } from '@/lib/offline-sync'
 import type { ItemRecord, ItemUsage } from '@/lib/types'
 
 export default function AppLayout({ children }: LayoutProps<'/'>) {
@@ -47,14 +50,23 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
   )
 }
 
-/** Loads item suggestions for the add/edit dialog without holding up the page. */
+/**
+ * Loads item suggestions for the add/edit dialog without holding up the page. The same list goes to
+ * the service worker for the offline page, but only when it loaded: an empty list must not replace
+ * a good one on the phone.
+ */
 async function ComposerLoader() {
-  const [items, usage] = await Promise.all([getItems(), getItemUsage()]).catch(
-    (error: unknown): [ItemRecord[], ItemUsage[]] => {
+  const [items, usage, userId] = await Promise.all([getItems(), getItemUsage(), getSession().then((s) => s.user.id)]).catch(
+    (error: unknown): [ItemRecord[], ItemUsage[], null] => {
       unstable_rethrow(error)
       console.error('Could not load item suggestions', error)
-      return [[], []]
+      return [[], [], null]
     },
   )
-  return <TransactionComposer items={items} usage={usage} />
+  return (
+    <>
+      <TransactionComposer items={items} usage={usage} />
+      {userId ? <OfflineSupport snapshot={buildOfflineSnapshot(userId, items, usage)} /> : null}
+    </>
+  )
 }

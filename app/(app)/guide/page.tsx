@@ -176,32 +176,52 @@ export default function GuidePage() {
         />
       </Section>
 
-      <Section id="mat-mang" icon={WifiOff} title="Mất mạng khi đang ghi">
+      <Section id="mat-mang" icon={WifiOff} title="Ghi khi mất mạng">
         <p>
-          Sóng yếu hay mạng rớt đúng lúc bạn bấm <strong>Lưu</strong> thì <strong>không cần nhập lại</strong>: app giữ khoản bạn vừa nhập và tự gửi khi có mạng.
+          Không có sóng vẫn ghi được. Có hai trường hợp, app tự xử lý cả hai, bạn không cần cài đặt gì. Chỉ cần đã <strong>mở app ít nhất một lần khi có mạng</strong>{' '}
+          trên điện thoại đó.
         </p>
-        <Steps
-          items={[
-            <>
-              Mất mạng thì đầu màn hình hiện dải <strong>“Đang mất mạng · sẽ tự gửi khi có mạng”</strong>. Nút Lưu chờ, đó là bình thường.
-            </>,
-            <>
-              <strong>Giữ app mở</strong> trong lúc chờ, đừng vuốt đóng.
-            </>,
-            <>
-              Có mạng lại, app tự gửi lên. Bạn thấy thông báo đã ghi, cảnh báo ngân sách và nút Hoàn tác như mọi lần.
-            </>,
-          ]}
-        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-line p-3.5">
+            <p className="text-sm font-semibold text-ink">Mở app khi không có mạng</p>
+            <Steps
+              compact
+              items={[
+                <>
+                  App mở trang <strong>Ghi nhanh khi mất mạng</strong>. Nhập số tiền, chọn khoản mục, bấm <strong>Lưu trên máy</strong>.
+                </>,
+                <>
+                  Khoản đó nằm trong danh sách <strong>Chờ gửi</strong> trên điện thoại. Đóng app vẫn còn.
+                </>,
+                <>Có mạng lại, khoản tự gửi lên. Trên Android, việc này chạy cả khi app đã đóng; trên iPhone thì gửi khi bạn mở lại app.</>,
+              ]}
+            />
+          </div>
+          <div className="rounded-2xl border border-line p-3.5">
+            <p className="text-sm font-semibold text-ink">Mạng rớt đúng lúc bấm Lưu</p>
+            <Steps
+              compact
+              items={[
+                <>
+                  Đầu màn hình hiện <strong>“Đang mất mạng · sẽ tự gửi khi có mạng”</strong>, nút Lưu chờ. Không cần nhập lại.
+                </>,
+                <>
+                  <strong>Giữ app mở</strong> trong lúc chờ: tắt hẳn app lúc này thì khoản đó mất.
+                </>,
+                'Có mạng lại, app tự gửi và báo đã ghi như mọi lần.',
+              ]}
+            />
+          </div>
+        </div>
         <Points
           items={[
+            'Trang ghi nhanh chỉ có các khoản mục đã có. Khoản mục mới phải tạo trong app khi có mạng.',
+            'Khoản chưa gửi chưa nằm trong Thu chi và chưa tính vào số liệu. Mở app khi không có mạng thì chỉ ghi được, chưa xem được số liệu.',
             <>
-              <strong>Tắt hẳn app lúc đang chờ thì khoản chưa gửi sẽ mất.</strong> Máy ít bộ nhớ có thể tự đóng app khi bạn mở app khác lâu. Nếu vừa mất mạng,
-              hãy chờ thông báo đã ghi trước khi thoát.
+              Khoản không gửi được (ví dụ khoản mục đã bị xoá) hiện lý do trong danh sách Chờ gửi, bấm <strong>×</strong> để xoá. Phiên đăng nhập hết hạn thì
+              khoản được giữ lại và tự gửi sau khi bạn đăng nhập.
             </>,
-            'Khoản chưa gửi lên chưa nằm trong danh sách giao dịch và chưa tính vào số liệu. Nghi ngờ thì mở Thu chi kiểm tra lại.',
-            'Mở app khi không có mạng thì chưa xem được số liệu, vì dữ liệu được tải từ máy chủ mỗi lần mở.',
-            'Hiếm khi mạng rớt đúng lúc máy chủ đã nhận xong, một khoản có thể được ghi hai lần. Nếu thấy trùng, mở khoản đó và xoá bớt một.',
+            'Khoản gửi từ danh sách Chờ gửi không bao giờ bị ghi hai lần. Riêng trường hợp mạng rớt lúc bấm Lưu trong app, rất hiếm khi một khoản có thể bị ghi trùng: thấy trùng thì xoá bớt một.',
           ]}
         />
       </Section>
@@ -541,8 +561,8 @@ export default function GuidePage() {
             Được. Đăng nhập cùng tài khoản trên điện thoại và máy tính, dữ liệu luôn giống nhau. Giao diện sáng/tối thì chọn riêng trên từng máy.
           </Faq>
           <Faq q="Mất mạng có ghi được không?">
-            Được nếu app còn mở: khoản bạn nhập được giữ lại và tự gửi khi có mạng. Tắt app lúc đang chờ thì khoản đó mất. Xem mục{' '}
-            <a href="#mat-mang" className="font-medium text-brand-ink hover:underline">Mất mạng khi đang ghi</a>.
+            Được. Mở app khi không có mạng thì có trang ghi nhanh, khoản ghi được lưu trên máy và tự gửi khi có mạng. Xem mục{' '}
+            <a href="#mat-mang" className="font-medium text-brand-ink hover:underline">Ghi khi mất mạng</a>.
           </Faq>
         </div>
       </Section>

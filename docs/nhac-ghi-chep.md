@@ -47,7 +47,7 @@ Một thông báo được coi là "đến giờ" từ giờ bạn chọn cho t�
 | [`lib/push.ts`](../lib/push.ts) | Gửi Web Push (thư viện `web-push`), dọn thiết bị đã hết hạn |
 | [`lib/actions/reminders.ts`](../lib/actions/reminders.ts) | Server action: lưu cài đặt, đăng ký/gỡ thiết bị |
 | [`lib/supabase/admin.ts`](../lib/supabase/admin.ts) | Client dùng service key, **chỉ** cho route cron |
-| [`public/sw.js`](../public/sw.js) | Service worker: hiện thông báo và mở app khi bấm |
+| [`public/sw.js`](../public/sw.js) | Service worker: hiện thông báo và mở app khi bấm. Cũng lo phần ghi khi mất mạng ([docs/ghi-offline.md](ghi-offline.md)); app đăng ký nó ở mỗi lần mở, không chỉ khi bật nhắc |
 | [`components/settings/reminder-settings.tsx`](../components/settings/reminder-settings.tsx) | Giao diện trong Cài đặt |
 | [`components/ui/switch.tsx`](../components/ui/switch.tsx) | Công tắc bật/tắt |
 | [`lib/push-client.ts`](../lib/push-client.ts) | Phần trình duyệt: kiểm tra hỗ trợ, đăng ký push |
