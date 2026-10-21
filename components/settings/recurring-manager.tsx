@@ -66,7 +66,7 @@ export function RecurringManager({ rules, items, usage }: { rules: RecurringReco
         }
       />
 
-      <ul className="mt-4 divide-y divide-line border-t border-line">
+      <ul className="@container mt-4 divide-y divide-line border-t border-line">
         {rules.length === 0 ? (
           <li className="flex flex-col items-center px-5 py-8 text-center">
             <Repeat className="icon-float size-6 text-muted" aria-hidden />
@@ -263,6 +263,7 @@ function RecurringForm({ rule, items, usage, onDone }: { rule: RecurringRecord |
           </p>
           {errors.remind_days ? <p className="mt-1.5 text-xs font-medium text-negative">{errors.remind_days}</p> : null}
         </div>
+        {rule ? <DeleteRule rule={rule} onDone={onDone} /> : null}
       </DialogBody>
       <DialogFooter>
         <Button type="submit" size="lg" className="w-full" disabled={pending || !canSubmit}>
@@ -271,6 +272,52 @@ function RecurringForm({ rule, items, usage, onDone }: { rule: RecurringRecord |
         </Button>
       </DialogFooter>
     </form>
+  )
+}
+
+/** Delete inside the edit sheet (the phone row has no delete button): two taps, with what stays spelled out. */
+function DeleteRule({ rule, onDone }: { rule: RecurringRecord; onDone: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+  const [pending, startTransition] = useTransition()
+
+  function remove() {
+    startTransition(async () => {
+      const result = await runAction(() => deleteRecurring(rule.id))
+      if (!result) return
+      if (!result.ok) {
+        toast.error(result.error)
+        setConfirming(false)
+        return
+      }
+      onDone()
+      afterDialogClose(() => toast.success('Đã xoá khoản định kỳ', { description: 'Các giao dịch đã ghi trước đây vẫn được giữ nguyên.' }))
+    })
+  }
+
+  return (
+    <div className="border-t border-line pt-4">
+      {confirming ? (
+        <div className="space-y-3">
+          <p className="text-sm text-ink-2">
+            Xoá khoản định kỳ “{rule.item}”? Các giao dịch đã ghi trước đây vẫn được giữ nguyên.
+          </p>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" className="flex-1" onClick={() => setConfirming(false)} disabled={pending}>
+              Huỷ
+            </Button>
+            <Button type="button" variant="danger" className="flex-1" onClick={remove} disabled={pending}>
+              {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Trash2 className="size-4" aria-hidden />}
+              Xoá
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="button" variant="danger-ghost" className="w-full" onClick={() => setConfirming(true)}>
+          <Trash2 className="size-4" aria-hidden />
+          Xoá khoản định kỳ
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -298,46 +345,76 @@ function RuleRow({ rule, onEdit }: { rule: RecurringRecord; onEdit: () => void }
     })
   }
 
+  const status = rule.active ? `Đang bật · nhắc ${remindLabel(rule.remind_days).toLowerCase()}` : 'Đang tạm dừng'
+  const toggleLabel = `${rule.active ? 'Tạm dừng' : 'Bật lại'} ${rule.item}`
+
+  // Narrow card (a phone): only what matters, name, amount and the day, in one tappable block that
+  // opens the edit sheet (category, reminder and delete live there), plus the on/off switch. From
+  // 42rem of card width the details and the edit / delete buttons come back on the right. This
+  // follows the card's width, not the screen's, so it holds wherever the settings page puts it.
   return (
-    <li className={cn('flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5', !rule.active && 'opacity-60')}>
+    <li
+      className={cn(
+        'grid grid-cols-[auto_1fr_auto] items-center gap-x-3 px-4 py-2.5 @2xl:grid-cols-[auto_1fr_19rem] @2xl:px-5 @2xl:py-3.5',
+        !rule.active && 'opacity-60',
+      )}
+    >
       <span className={cn('grid size-9 shrink-0 place-items-center rounded-full bg-surface-2', income ? 'text-positive' : 'text-expense')}>
         {income ? <ArrowDownLeft className="size-4" aria-hidden /> : <ArrowUpRight className="size-4" aria-hidden />}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{rule.item}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span aria-hidden className="size-2 rounded-full" style={{ background: CATEGORY_META[rule.category].color }} />
-            {CATEGORY_META[rule.category].label}
+
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Sửa ${rule.item}`}
+        className="-my-1 block min-w-0 rounded-lg py-1 text-left active:bg-surface-2 focus:outline-none focus-visible:ring-3 focus-visible:ring-focus/30"
+      >
+        <span className="flex items-baseline justify-between gap-3">
+          <span className="min-w-0 truncate text-[15px] font-medium">{rule.item}</span>
+          <span className={cn('shrink-0 text-[15px] font-semibold tabular-nums', income ? 'text-positive' : 'text-ink')}>
+            {formatSignedVND(income ? rule.amount : -rule.amount)}
           </span>
-          <span className="whitespace-nowrap">Ngày {rule.day_of_month} hằng tháng</span>
-          <span className="whitespace-nowrap">Nhắc {rule.remind_days === 0 ? 'đúng ngày' : `±${rule.remind_days} ngày`}</span>
-          {rule.active ? null : <span className="whitespace-nowrap">Đang tạm dừng</span>}
-        </p>
+        </span>
+        <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+          <span aria-hidden className="hidden size-2 shrink-0 rounded-full @2xl:block" style={{ background: CATEGORY_META[rule.category].color }} />
+          <span className="min-w-0 truncate">
+            <span className="hidden @2xl:inline">{CATEGORY_META[rule.category].label} · </span>
+            Ngày {rule.day_of_month} hằng tháng
+            {rule.active ? null : <span className="@2xl:hidden"> · Tạm dừng</span>}
+          </span>
+        </span>
+      </button>
+
+      <div className="flex items-center justify-end @2xl:justify-between">
+        {confirming ? (
+          <>
+            <span className="hidden text-sm text-ink-2 @2xl:inline">Xoá khoản này?</span>
+            <div className="flex items-center gap-1.5">
+              <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
+                Huỷ
+              </Button>
+              <Button variant="danger" size="sm" onClick={remove} disabled={pending}>
+                Xoá
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="-my-2 flex items-center gap-2.5 py-2 pl-1 text-xs text-muted @2xl:mr-2">
+              <Switch checked={rule.active} onCheckedChange={toggle} disabled={pending} aria-label={toggleLabel} />
+              <span className="hidden truncate @2xl:inline">{status}</span>
+            </label>
+            <div className="hidden items-center @2xl:flex">
+              <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={`Sửa ${rule.item}`}>
+                <Pencil className="icon-hover-wiggle size-4" aria-hidden />
+              </Button>
+              <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(true)} aria-label={`Xoá ${rule.item}`}>
+                <Trash2 className="icon-hover-wiggle size-4" aria-hidden />
+              </Button>
+            </div>
+          </>
+        )}
       </div>
-      <p className={cn('text-sm font-semibold tabular-nums', income ? 'text-positive' : 'text-ink')}>
-        {formatSignedVND(income ? rule.amount : -rule.amount)}
-      </p>
-      {confirming ? (
-        <div className="flex items-center gap-1.5">
-          <Button variant="secondary" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
-            Huỷ
-          </Button>
-          <Button variant="danger" size="sm" onClick={remove} disabled={pending}>
-            Xoá
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center">
-          <Switch checked={rule.active} onCheckedChange={toggle} disabled={pending} aria-label={`${rule.active ? 'Tạm dừng' : 'Bật lại'} ${rule.item}`} />
-          <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={`Sửa ${rule.item}`}>
-            <Pencil className="icon-hover-wiggle size-4" aria-hidden />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(true)} aria-label={`Xoá ${rule.item}`}>
-            <Trash2 className="icon-hover-wiggle size-4" aria-hidden />
-          </Button>
-        </div>
-      )}
     </li>
   )
 }

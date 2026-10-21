@@ -488,7 +488,7 @@ export default function GuidePage() {
               thoại hiện một thông báo nhắc bạn ghi thu chi. Trên iPhone cần cài app ra màn hình chính trước (xem mục Cài app).
             </>,
             <>
-              <strong>Giao dịch định kỳ</strong>: bấm <strong>Thêm</strong> hoặc biểu tượng bút chì ở từng dòng để thêm, sửa trong hộp thoại; công tắc để tạm dừng; thùng rác để xoá.
+              <strong>Giao dịch định kỳ</strong>: bấm <strong>Thêm</strong> để thêm. Chạm vào một dòng (trên máy tính: biểu tượng bút chì) để sửa trong hộp thoại, nơi có cả nút xoá; công tắc ở mỗi dòng để tạm dừng.
             </>,
             <>
               <strong>Danh mục khoản mục</strong>: danh sách khoản mục của bạn, mỗi giao dịch thuộc một khoản mục. Đặt phân loại mặc định (chỉ để gợi ý),

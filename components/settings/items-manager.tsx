@@ -4,13 +4,14 @@ import { ArchiveRestore, Check, LoaderCircle, Pencil, Plus, Trash2, X } from 'lu
 import { useMemo, useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
-import { Segmented } from '@/components/ui/choice'
+import { ChoiceChips, Segmented } from '@/components/ui/choice'
 import { ClearableInput } from '@/components/ui/clearable-input'
-import { Input } from '@/components/ui/field'
+import { Dialog, DialogBody, DialogFooter } from '@/components/ui/dialog'
+import { Field, Input } from '@/components/ui/field'
 import { Pagination } from '@/components/ui/pagination'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select } from '@/components/ui/select'
-import { toast } from '@/lib/toast'
+import { afterDialogClose, toast } from '@/lib/toast'
 import { runAction } from '@/lib/run-action'
 import { createItem, deleteItem, restoreItem, updateItem } from '@/lib/actions/items'
 import { CATEGORY_META } from '@/lib/categories'
@@ -52,6 +53,7 @@ export function ItemsManager({ items, usage }: { items: ItemRecord[]; usage: Ite
   const [kind, setKind] = useState<Kind>('expense')
   const [newName, setNewName] = useState('')
   const [newCategory, setNewCategory] = useState<Category | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
   const [query, setQuery] = useState('')
@@ -152,8 +154,17 @@ export function ItemsManager({ items, usage }: { items: ItemRecord[]; usage: Ite
         }
       />
 
+      {/* Phones: one button, the fields live in a sheet. From `sm` the form stays in the page. */}
+      <div className="border-b border-line p-4 sm:hidden">
+        <Button className="w-full" onClick={() => setAddOpen(true)}>
+          <Plus className="size-4" aria-hidden />
+          {kind === 'expense' ? 'Thêm khoản mục chi' : 'Thêm khoản thu'}
+        </Button>
+      </div>
+      <NewItemDialog key={kind} kind={kind} open={addOpen} onClose={() => setAddOpen(false)} />
+
       <form
-        className="grid gap-2 border-b border-line p-4 sm:grid-cols-[1fr_16rem_auto] sm:p-5"
+        className="hidden gap-2 border-b border-line p-4 sm:grid sm:grid-cols-[1fr_16rem_auto] sm:p-5"
         onSubmit={(e) => {
           e.preventDefault()
           if (newName.trim()) add(newName, newCategory)
@@ -283,6 +294,89 @@ export function ItemsManager({ items, usage }: { items: ItemRecord[]; usage: Ite
         </div>
       ) : null}
     </Card>
+  )
+}
+
+/** Phone sheet for a new item: name, default category, one button. Closes when the item is added. */
+function NewItemDialog({ kind, open, onClose }: { kind: Kind; open: boolean; onClose: () => void }) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={kind === 'expense' ? 'Thêm khoản mục chi' : 'Thêm khoản thu'}
+      description="Phân loại mặc định được điền sẵn khi bạn chọn khoản mục này lúc ghi."
+    >
+      {open ? <NewItemForm kind={kind} onDone={onClose} /> : null}
+    </Dialog>
+  )
+}
+
+type CategoryChoice = Category | 'auto'
+
+function NewItemForm({ kind, onDone }: { kind: Kind; onDone: () => void }) {
+  const [name, setName] = useState('')
+  const [choice, setChoice] = useState<CategoryChoice>('auto')
+  const [pending, startTransition] = useTransition()
+  const trimmed = name.trim()
+
+  function submit() {
+    if (!trimmed || pending) return
+    startTransition(async () => {
+      const result = await runAction(() => createItem({ kind, name, default_category: choice === 'auto' ? null : choice }))
+      if (!result) return
+      if (!result.ok) {
+        // The sheet stays open so the name can be fixed.
+        toast.error(result.error)
+        return
+      }
+      onDone()
+      afterDialogClose(() => toast.success('Đã thêm khoản mục', { description: `“${trimmed}”` }))
+    })
+  }
+
+  return (
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+    >
+      <DialogBody className="space-y-4">
+        <Field label="Tên khoản mục" htmlFor="new-item-name">
+          <ClearableInput
+            id="new-item-name"
+            value={name}
+            onValueChange={setName}
+            placeholder={kind === 'expense' ? 'VD: Đổ xăng' : 'VD: Lương'}
+            clearLabel="Xoá tên khoản mục"
+            maxLength={100}
+            autoComplete="off"
+            data-autofocus
+          />
+        </Field>
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-ink-2">Phân loại mặc định</p>
+          <ChoiceChips
+            label="Phân loại mặc định"
+            value={choice}
+            onChange={setChoice}
+            options={[
+              { value: 'auto' as const, label: 'Tự động' },
+              ...categoriesFor(kind).map((c) => ({ value: c as CategoryChoice, label: CATEGORY_META[c].label, dot: CATEGORY_META[c].color })),
+            ]}
+          />
+          <p className="mt-1.5 text-xs text-muted">Tự động: dùng phân loại của lần ghi gần nhất.</p>
+        </div>
+      </DialogBody>
+      <DialogFooter>
+        <Button type="submit" size="lg" className="w-full" disabled={pending || !trimmed}>
+          {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Plus className="size-4" aria-hidden />}
+          Thêm khoản mục
+        </Button>
+      </DialogFooter>
+    </form>
   )
 }
 
