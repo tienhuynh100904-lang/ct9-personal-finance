@@ -8,14 +8,14 @@ export function LogoMark({ className = 'size-8' }: { className?: string }) {
   return (
     <>
       <Image
-        src="/imgs/Logo_Light_No_Word.png"
+        src="/imgs/Logo_Light_No_Word_v2.png"
         alt=""
         width={96}
         height={96}
         className={cn(className, shared, 'dark:hidden')}
       />
       <Image
-        src="/imgs/Logo_Dark_No_Word.png"
+        src="/imgs/Logo_Dark_No_Word_v2.png"
         alt=""
         width={96}
         height={96}
