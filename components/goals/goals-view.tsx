@@ -18,7 +18,6 @@ import type { ItemRecord, ItemUsage } from '@/lib/types'
 import {
   EMERGENCY_BENCHMARKS,
   feasibility,
-  GOAL_PLACES,
   goalProgress,
   unallocated,
   type GoalKind,
@@ -402,12 +401,8 @@ function GoalCard({
           <h3 className="truncate text-[15px] font-semibold tracking-tight">{goal.name}</h3>
           <p className="mt-0.5 text-xs text-muted">
             Hạn {formatDate(progress.deadline)}
-            {/* Place and rate are in the detail dialog; on a phone they only make the line wrap. */}
-            <span className="max-sm:hidden">
-              {' '}
-              · {GOAL_PLACES[goal.place].label}
-              {goal.rate_bp > 0 ? ` · ${String(goal.rate_bp / 100).replace('.', ',')}%/năm` : ''}
-            </span>
+            {/* The expected return is in the detail dialog; on a phone it only makes the line wrap. */}
+            {goal.rate_bp > 0 ? <span className="max-sm:hidden"> · {String(goal.rate_bp / 100).replace('.', ',')}%/năm</span> : null}
           </p>
         </div>
         <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', PACE[pace].className)}>{PACE[pace].label}</span>

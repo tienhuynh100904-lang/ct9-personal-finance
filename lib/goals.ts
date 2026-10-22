@@ -15,14 +15,6 @@
 export const MAX_GOAL_RATE_BP = 1200
 
 export type GoalKind = 'emergency' | 'custom'
-export type GoalPlace = 'bank' | 'app' | 'mmf'
-
-export const GOAL_PLACES: Record<GoalPlace, { label: string; hint: string }> = {
-  bank: { label: 'Ngân hàng', hint: 'Nhận đủ gốc và lãi' },
-  app: { label: 'Ứng dụng tài chính', hint: 'Nhận gốc và khoảng 95% tiền lãi' },
-  mmf: { label: 'Quỹ thị trường tiền tệ (MMF)', hint: 'Nhận khoảng 99,9% tổng giá trị' },
-}
-
 /** Benchmarks shown for the emergency fund (months of fixed costs). */
 export const EMERGENCY_BENCHMARKS = [1, 3, 6] as const
 
@@ -39,7 +31,6 @@ export type GoalRecord = {
   months: number
   /** Expected yearly return in basis points (400 = 4%/năm). */
   rate_bp: number
-  place: GoalPlace
   /** Money already set aside outside the app when the goal started. */
   initial_amount: number
   note: string | null
@@ -173,13 +164,6 @@ export function accrue(entries: readonly { date: string; amount: number }[], rat
   return { principal, interest, balance }
 }
 
-/** What you would actually get on withdrawal, per place (workbook: "Số tiền rút ra thực tế"). */
-export function withdrawable(accrual: Accrual, place: GoalPlace): number {
-  if (place === 'app') return accrual.principal + accrual.interest * 0.95
-  if (place === 'mmf') return (accrual.principal + accrual.interest) * 0.999
-  return accrual.principal + accrual.interest
-}
-
 /**
  * "Cần tiết kiệm các tháng sau": the monthly amount that still reaches the target by the deadline
  * from today's balance. The month before the deadline (and later) asks for the whole remainder.
@@ -209,8 +193,11 @@ export type GoalProgress = {
   allocated: number
   /** Total spent straight from this goal ("Chi từ quỹ"). */
   spent: number
+  /** Everything put into this goal from the savings pool ("Tổng nạp"; excludes the existing amount). */
+  deposited: number
+  /** Taken back out to the savings pool, to be allocated elsewhere ("Rút về tiết kiệm"). Spending is `spent`, not this. */
+  withdrawn: number
   accrual: Accrual
-  withdrawable: number
   /** 0–1. */
   progress: number
   planned: number
@@ -254,8 +241,9 @@ export function goalProgress(goal: GoalRecord, allocations: readonly AllocationR
     deadline,
     allocated: own.reduce((sum, a) => sum + a.amount, 0),
     spent: own.reduce((sum, a) => sum + (a.transaction_id ? -a.amount : 0), 0),
+    deposited: own.reduce((sum, a) => sum + (a.amount > 0 ? a.amount : 0), 0),
+    withdrawn: own.reduce((sum, a) => sum + (a.amount < 0 && !a.transaction_id ? -a.amount : 0), 0),
     accrual,
-    withdrawable: withdrawable(accrual, goal.place),
     progress,
     planned: plannedMonthly({ target, months: goal.months, rateBp: goal.rate_bp, existing: goal.initial_amount }),
     fromNow: monthlyFromNow({ target, balance: accrual.balance, rateBp: goal.rate_bp, deadline, today }),

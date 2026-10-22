@@ -2,7 +2,7 @@
 // if you change the schema.
 
 import type { BudgetCategory, Category, Kind } from '../finance'
-import type { GoalKind, GoalPlace } from '../goals'
+import type { GoalKind } from '../goals'
 
 export type Database = {
   __InternalSupabase: {
@@ -315,7 +315,6 @@ export type Database = {
           start_date: string
           months: number
           rate_bp: number
-          place: GoalPlace
           initial_amount: number
           note: string | null
           archived_at: string | null
@@ -333,7 +332,6 @@ export type Database = {
           start_date: string
           months: number
           rate_bp?: number
-          place?: GoalPlace
           initial_amount?: number
           note?: string | null
           archived_at?: string | null
@@ -351,7 +349,6 @@ export type Database = {
           start_date?: string
           months?: number
           rate_bp?: number
-          place?: GoalPlace
           initial_amount?: number
           note?: string | null
           archived_at?: string | null

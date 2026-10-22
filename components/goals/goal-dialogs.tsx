@@ -23,12 +23,10 @@ import {
   addMonthsISO,
   emergencyTarget,
   feasibility,
-  GOAL_PLACES,
   MAX_GOAL_RATE_BP,
   plannedMonthly,
   type AllocationRecord,
   type GoalKind,
-  type GoalPlace,
   type GoalProgress,
   type GoalRecord,
 } from '@/lib/goals'
@@ -124,7 +122,6 @@ function GoalForm({
   const [startDate, setStartDate] = useState(goal?.start_date ?? todayISO())
   const [months, setMonths] = useState(String(goal?.months ?? 12))
   const [rate, setRate] = useState(goal ? bpToPercent(goal.rate_bp) : '0')
-  const [place, setPlace] = useState<GoalPlace>(goal?.place ?? 'bank')
   const [initial, setInitial] = useState(goal?.initial_amount ?? 0)
   const [note, setNote] = useState(goal?.note ?? '')
   const [errors, setErrors] = useState<FieldErrors<GoalInput>>({})
@@ -151,7 +148,6 @@ function GoalForm({
       start_date: startDate,
       months: monthsNumber,
       rate_bp: rateBp,
-      place,
       initial_amount: initial,
       note,
     }
@@ -221,17 +217,11 @@ function GoalForm({
         </Field>
         <ChoiceChips label="Chọn nhanh số tháng" value={MONTH_CHOICES.includes(months) ? months : null} onChange={setMonths} options={MONTH_CHOICES.map((m) => ({ value: m, label: `${m} tháng` }))} />
 
-        <div>
-          <p className="mb-1.5 text-sm font-medium text-ink-2">Nơi cất quỹ</p>
-          <ChoiceChips label="Nơi cất quỹ" value={place} onChange={setPlace} options={(Object.keys(GOAL_PLACES) as GoalPlace[]).map((p) => ({ value: p, label: GOAL_PLACES[p].label }))} />
-          <p className="mt-1.5 text-xs text-muted">{GOAL_PLACES[place].hint}</p>
-        </div>
-
         <Field
           label="Lợi nhuận kỳ vọng (%/năm)"
           htmlFor="goal-rate"
           error={errors.rate_bp ?? (rate.trim() !== '' && !validRate ? `Từ 0 đến ${MAX_GOAL_RATE_BP / 100}%. Cao hơn là không thực tế.` : undefined)}
-          hint={`Tối đa ${MAX_GOAL_RATE_BP / 100}%/năm. Lãi tiết kiệm ngân hàng hiện thường khoảng 4–6%.`}
+          hint={`Chỉ để ước tính mỗi tháng cần bỏ vào quỹ bao nhiêu (tối đa ${MAX_GOAL_RATE_BP / 100}%/năm). Tiền thật nằm ở các khoản tiết kiệm của bạn.`}
         >
           <Input id="goal-rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value.replace(/[^\d.,]/g, '').slice(0, 5))} aria-invalid={rate.trim() !== '' && !validRate} />
         </Field>
@@ -680,7 +670,7 @@ export function GoalDetailDialog({
   onDelete: (progress: GoalProgress) => void
 }) {
   return (
-    <Dialog open={progress !== null} onClose={onClose} title={progress?.goal.name ?? 'Chi tiết quỹ'} description={progress ? `Hạn ${formatDate(progress.deadline)} · ${GOAL_PLACES[progress.goal.place].label}` : undefined}>
+    <Dialog open={progress !== null} onClose={onClose} title={progress?.goal.name ?? 'Chi tiết quỹ'} description={progress ? `Hạn ${formatDate(progress.deadline)}` : undefined}>
       {progress ? (
         <GoalDetail
           key={progress.goal.id}
@@ -730,20 +720,29 @@ function GoalDetail({
     <>
       <DialogBody className="space-y-5">
         <dl className="grid grid-cols-2 gap-2 text-sm">
-          {[
-            ['Hiện có', formatVND(progress.accrual.balance)],
-            ['Mục tiêu', formatVND(progress.target)],
-            ['Đã phân bổ (còn lại)', formatVND(progress.allocated)],
-            ['Đã chi từ quỹ', formatVND(progress.spent)],
-            ['Có sẵn từ đầu', formatVND(goal.initial_amount)],
-            ['Lãi tới nay', `+${formatVND(progress.accrual.interest)}`],
-            ['Rút ra thực tế ≈', formatVND(progress.withdrawable)],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl bg-surface-2 px-3 py-2">
-              <dt className="text-xs text-muted">{label}</dt>
-              <dd className="font-semibold tabular-nums">{value}</dd>
-            </div>
-          ))}
+          {/* "Tổng rút" is split into what was spent and what went back to savings (to be allocated to another goal). */}
+          {(
+            [
+              { label: 'Hiện có', value: formatVND(progress.accrual.balance) },
+              { label: 'Mục tiêu', value: formatVND(progress.target) },
+              { label: 'Tổng nạp', value: formatVND(progress.deposited), hint: 'Đã chia từ tiền tiết kiệm vào quỹ' },
+              {
+                label: 'Tổng rút',
+                value: formatVND(progress.spent + progress.withdrawn),
+                hint: `Chi tiêu ${formatVND(progress.spent)} · Về tiết kiệm ${formatVND(progress.withdrawn)}`,
+              },
+              { label: 'Có sẵn từ đầu', value: formatVND(goal.initial_amount), show: goal.initial_amount > 0 },
+              { label: 'Lợi nhuận', value: `+${formatVND(progress.accrual.interest)}`, hint: 'Tiền lãi ước tính tới hôm nay' },
+            ] as { label: string; value: string; hint?: string; show?: boolean }[]
+          )
+            .filter((tile) => tile.show !== false)
+            .map(({ label, value, hint }) => (
+              <div key={label} className="rounded-xl bg-surface-2 px-3 py-2">
+                <dt className="text-xs text-muted">{label}</dt>
+                <dd className="font-semibold tabular-nums">{value}</dd>
+                {hint ? <p className="mt-0.5 text-[11px] leading-snug text-muted">{hint}</p> : null}
+              </div>
+            ))}
         </dl>
 
         <section aria-labelledby="milestones-title">

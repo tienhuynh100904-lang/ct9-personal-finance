@@ -10,7 +10,6 @@ import {
   plannedMonthly,
   pmt,
   wholeMonthsBetween,
-  withdrawable,
   type GoalRecord,
 } from '../lib/goals.ts'
 
@@ -52,13 +51,6 @@ test('the balance with daily interest matches the workbook to the đồng', () =
   assert.equal(accrue([{ date: '2026-12-01', amount: 5 }], 400, '2026-08-01').balance, 0)
 })
 
-test('what you get back depends on where the fund is kept', () => {
-  const a = { principal: 1_000_000, interest: 10_000, balance: 1_010_000 }
-  assert.equal(withdrawable(a, 'bank'), 1_010_000)
-  assert.equal(withdrawable(a, 'app'), 1_009_500)
-  near(withdrawable(a, 'mmf'), 1_008_990)
-})
-
 test('"cần tiết kiệm các tháng sau" matches the workbook\'s column I', () => {
   const deadline = '2027-03-01'
   // After the first deposit (March), the deposit of April, and the last one (August).
@@ -86,7 +78,6 @@ const goal = (patch: Partial<GoalRecord> = {}): GoalRecord => ({
   start_date: '2026-03-01',
   months: 12,
   rate_bp: 400,
-  place: 'bank',
   initial_amount: 0,
   note: null,
   archived_at: null,
@@ -141,5 +132,8 @@ test('a goal tells allocations, withdrawals and spending apart', () => {
   const p = goalProgress(goal({ rate_bp: 0 }), rows, '2026-07-01')
   assert.equal(p.allocated, 3_000_000)
   assert.equal(p.spent, 6_000_000)
+  assert.equal(p.deposited, 10_000_000)
+  // Only the plain withdrawal; the 6 triệu spent is counted in `spent`, not here.
+  assert.equal(p.withdrawn, 1_000_000)
   assert.equal(p.accrual.balance, 3_000_000)
 })

@@ -159,7 +159,7 @@ export async function getGoalsData(today: string): Promise<GoalsData | null> {
   const [goals, allocations, pool, budget, essential] = await Promise.all([
     supabase
       .from('goals')
-      .select('id, kind, name, target_amount, monthly_expense, reserve_months, start_date, months, rate_bp, place, initial_amount, note, archived_at')
+      .select('id, kind, name, target_amount, monthly_expense, reserve_months, start_date, months, rate_bp, initial_amount, note, archived_at')
       .order('created_at'),
     supabase
       .from('goal_allocations')

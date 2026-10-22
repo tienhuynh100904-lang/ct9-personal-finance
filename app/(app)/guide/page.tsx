@@ -301,8 +301,8 @@ export default function GuidePage() {
               trung bình 3 tháng qua.
             </>,
             <>
-              <strong>Tạo quỹ mới</strong> cho từng mục tiêu: tên, số tiền, số tháng, nơi cất (ngân hàng, ứng dụng tài chính, MMF) và lợi nhuận kỳ vọng
-              (tối đa 12%/năm). App tính ngay mỗi tháng cần tiết kiệm bao nhiêu.
+              <strong>Tạo quỹ mới</strong> cho từng mục tiêu: tên, số tiền, số tháng và lợi nhuận kỳ vọng
+              (tối đa 12%/năm, chỉ để ước tính). App tính ngay mỗi tháng cần tiết kiệm bao nhiêu.
             </>,
             <>
               Bấm <strong>Phân bổ vào quỹ</strong> để chia tiền vào một hoặc nhiều quỹ cùng lúc. Bấm <strong>Rút / Chi</strong> ở một quỹ để lấy tiền

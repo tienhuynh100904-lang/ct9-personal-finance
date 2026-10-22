@@ -307,8 +307,7 @@ Tương ứng file Excel *Theo dõi mục tiêu tài chính*: mỗi quỹ một 
 | `target_amount` | Số tiền mục tiêu. Với quỹ khẩn cấp luôn bằng `monthly_expense × reserve_months` (database kiểm tra) |
 | `monthly_expense`, `reserve_months` | Chỉ quỹ khẩn cấp: chi phí cố định 1 tháng và số tháng dự phòng (1–24) |
 | `start_date`, `months` | Ngày bắt đầu và số tháng thực hiện. Hạn = ngày bắt đầu + số tháng |
-| `rate_bp` | Lợi nhuận kỳ vọng tính bằng phần vạn: 400 = 4%/năm. Tối đa 1200 (12%/năm), giống giới hạn "không thực tế" của file Excel |
-| `place` | Nơi cất quỹ: `bank` (nhận đủ gốc + lãi), `app` (gốc + 95% lãi), `mmf` (99,9% tổng giá trị) |
+| `rate_bp` | Lợi nhuận kỳ vọng tính bằng phần vạn: 400 = 4%/năm. Tối đa 1200 (12%/năm), giống giới hạn "không thực tế" của file Excel. Chỉ dùng để ước tính số tiền cần tiết kiệm mỗi tháng |
 | `initial_amount` | Tiền đã có sẵn cho quỹ từ trước, không lấy từ tiền tiết kiệm trong app |
 | `archived_at` | Đã lưu trữ (quỹ đã dùng xong). Tiền của quỹ vẫn tính là đã dùng |
 

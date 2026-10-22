@@ -1,7 +1,7 @@
 import { isUuid } from './actions/result'
 import { isValidISODate } from './dates'
 import { BUDGET_CATEGORIES, isCategoryOf, type BudgetCategory, type Category, type Kind } from './finance'
-import { MAX_GOAL_RATE_BP, type GoalKind, type GoalPlace } from './goals'
+import { MAX_GOAL_RATE_BP, type GoalKind } from './goals'
 import { cleanItemName } from './items'
 import { MAX_DEPOSIT_RATE_BP, MAX_DEPOSIT_TERM_MONTHS } from './deposits'
 import { MAX_REMIND_DAYS } from './recurring'
@@ -192,7 +192,6 @@ export type GoalInput = {
   months: number
   /** Basis points: 400 = 4%/năm, at most MAX_GOAL_RATE_BP. */
   rate_bp: number
-  place: GoalPlace
   initial_amount: number
   note?: string | null
 }
@@ -206,7 +205,6 @@ export type GoalValues = {
   start_date: string
   months: number
   rate_bp: number
-  place: GoalPlace
   initial_amount: number
   note: string | null
 }
@@ -255,9 +253,6 @@ export function validateGoal(input: unknown): Validated<GoalValues, FieldErrors<
     errors.rate_bp = `Lợi nhuận kỳ vọng từ 0 đến ${MAX_GOAL_RATE_BP / 100}%/năm. Cao hơn là không thực tế.`
   }
 
-  const place = raw.place
-  if (place !== 'bank' && place !== 'app' && place !== 'mmf') errors.place = 'Chọn nơi cất quỹ.'
-
   const initial = raw.initial_amount ?? 0
   if (!isWholeAmount(initial, 0)) errors.initial_amount = 'Số tiền không hợp lệ.'
 
@@ -276,7 +271,6 @@ export function validateGoal(input: unknown): Validated<GoalValues, FieldErrors<
       start_date: start,
       months: months as number,
       rate_bp: rate as number,
-      place: place as GoalPlace,
       initial_amount: initial as number,
       note: note || null,
     },

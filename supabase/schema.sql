@@ -427,7 +427,6 @@ create table if not exists public.goals (
   start_date      date not null,
   months          smallint not null check (months between 1 and 600),
   rate_bp         smallint not null default 0 check (rate_bp between 0 and 1200),
-  place           text not null default 'bank' check (place in ('bank', 'app', 'mmf')),
   initial_amount  bigint not null default 0 check (initial_amount >= 0 and initial_amount < 1000000000000),
   note            text check (note is null or char_length(note) <= 1000),
   archived_at     timestamptz,
@@ -440,6 +439,9 @@ create table if not exists public.goals (
     )
   )
 );
+
+-- Bản cũ có cột `place` (nơi cất quỹ). Quỹ chỉ là mục tiêu, tiền thật nằm ở các khoản tiết kiệm, nên bỏ cột này.
+alter table public.goals drop column if exists place;
 
 create unique index if not exists goals_one_emergency_per_user on public.goals (user_id) where kind = 'emergency';
 
