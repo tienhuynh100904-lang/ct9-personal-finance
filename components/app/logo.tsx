@@ -1,13 +1,27 @@
+import Image from 'next/image'
 import Link from 'next/link'
+import { cn } from '@/lib/cn'
 
+/** Small on screen, so the version without the letters (they would be unreadable). Two files, one per theme: the dark variant is shown under data-theme="dark" (see @custom-variant in globals.css). */
 export function LogoMark({ className = 'size-8' }: { className?: string }) {
+  const shared = 'rounded-[28%]'
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="9" fill="var(--ink)" />
-      <rect x="7" y="16" width="4.5" height="9" rx="1.5" fill="var(--c-income)" />
-      <rect x="13.75" y="11" width="4.5" height="14" rx="1.5" fill="var(--c-expense)" />
-      <rect x="20.5" y="7" width="4.5" height="18" rx="1.5" fill="var(--c-saving)" />
-    </svg>
+    <>
+      <Image
+        src="/imgs/Logo_Light_No_Word.png"
+        alt=""
+        width={96}
+        height={96}
+        className={cn(className, shared, 'dark:hidden')}
+      />
+      <Image
+        src="/imgs/Logo_Dark_No_Word.png"
+        alt=""
+        width={96}
+        height={96}
+        className={cn(className, shared, 'hidden dark:block')}
+      />
+    </>
   )
 }
 

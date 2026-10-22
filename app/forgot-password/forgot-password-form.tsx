@@ -3,10 +3,11 @@
 import { ArrowLeft, Mail, MailCheck, Send } from 'lucide-react'
 import Link from 'next/link'
 import { useActionState, useEffect, useState } from 'react'
-import { AuthAlert, CoinSpinner, FieldIcon } from '@/components/app/auth-ui'
+import { CoinSpinner, FieldIcon } from '@/components/app/auth-ui'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { requestPasswordReset, type ResetRequestState } from '@/lib/actions/auth'
+import { toast } from '@/lib/toast'
 
 const initialState: ResetRequestState = { error: null, email: '', sentAt: null }
 /** Seconds before "Gửi lại" works again (Supabase also limits how often one address can be mailed). */
@@ -25,6 +26,9 @@ export function ForgotPasswordForm() {
     setCountedFor(state.sentAt)
     setSecondsLeft(state.sentAt === null ? 0 : RESEND_AFTER)
   }
+  useEffect(() => {
+    if (state.error) toast.error(state.error)
+  }, [state])
   useEffect(() => {
     if (state.sentAt === null) return
     const timer = window.setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000)
@@ -83,8 +87,6 @@ export function ForgotPasswordForm() {
           />
         </div>
       </Field>
-
-      {state.error ? <AuthAlert key={state.error}>{state.error}</AuthAlert> : null}
 
       <Button type="submit" size="lg" className="btn-sheen w-full" disabled={pending}>
         {pending ? <CoinSpinner /> : <Send className="icon-hover-wiggle size-4" aria-hidden />}

@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { CoinDefs, GoldCoin, Sparkle } from './gold-coin'
+import { LogoMark } from './logo'
 
 /** Coins drifting down behind the page: left edge, size (px), fall time, start offset, sideways drift, far (blurred). */
 const FALLING_COINS: { left: string; size: number; dur: number; delay: number; drift: number; far?: boolean }[] = [
@@ -28,7 +29,10 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
       <div className="relative mx-auto grid min-h-dvh w-full max-w-6xl content-center items-center gap-7 px-4 py-8 sm:py-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:px-10">
         <section className="auth-rise flex flex-col items-center text-center lg:items-start lg:text-left">
           <CoinStage />
-          <h1 className="auth-title mt-5 text-3xl font-bold tracking-tight lg:mt-7 lg:text-5xl">CT9 Finance</h1>
+          <div className="mt-5 flex items-center gap-3 lg:mt-7 lg:gap-4">
+            <LogoMark className="size-11 lg:size-16" />
+            <h1 className="auth-title text-3xl font-bold tracking-tight lg:text-5xl">CT9 Finance</h1>
+          </div>
           <p className="mt-1.5 text-sm text-ink-2 lg:text-base">{subtitle}</p>
 
           <div className="hidden w-full max-w-md lg:block">

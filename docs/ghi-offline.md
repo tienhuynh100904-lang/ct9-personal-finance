@@ -77,7 +77,7 @@ IndexedDB tên **`ct9-offline`** (xem trong Chrome DevTools → Application → 
 | `meta` | `snapshot` | `{ userId, items: [{ id, kind, name, category }], savedAt }`: khoản mục đang dùng (bỏ khoản đã ẩn), dùng nhiều nhất trước; `category` là phân loại lần ghi gần nhất, không có thì lấy mặc định |
 | `meta` | `sync` | `{ needsLogin, lastTriedAt }`: lần gửi gần nhất có bị yêu cầu đăng nhập không |
 
-Cache của service worker: **`ct9-offline-v2`** chứa `/offline.html`, `/offline-db.js`, `/icon.svg`. Mỗi lần mở app khi có mạng, các file này được tải lại để luôn mới. Service worker **không bao giờ** lưu trang hay dữ liệu của app.
+Cache của service worker: **`ct9-offline-v3`** chứa `/offline.html`, `/offline-db.js`, `/imgs/Logo_Light_No_Word.png`, `/imgs/Logo_Dark_No_Word.png`. Mỗi lần mở app khi có mạng, các file này được tải lại để luôn mới. Service worker **không bao giờ** lưu trang hay dữ liệu của app.
 
 Snapshot được làm mới mỗi lần mở app khi có mạng, và bị xoá khi về trang đăng nhập (đăng xuất). Khoản đang chờ gửi thì **không** bị xoá khi đăng xuất.
 

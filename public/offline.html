@@ -13,7 +13,8 @@
     <meta name="theme-color" content="#f6f6f3" />
     <meta name="robots" content="noindex" />
     <title>Ghi nhanh offline · CT9 Finance</title>
-    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/imgs/favicon-light.png" type="image/png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" href="/imgs/favicon-dark.png" type="image/png" media="(prefers-color-scheme: dark)" />
     <script>
       ;(function () {
         var pref = 'light'
@@ -120,6 +121,13 @@
         width: 32px;
         height: 32px;
         border-radius: 9px;
+      }
+      .logo-dark,
+      [data-theme='dark'] .logo-light {
+        display: none;
+      }
+      [data-theme='dark'] .logo-dark {
+        display: block;
       }
       .pill {
         display: inline-flex;
@@ -365,7 +373,7 @@
   <body>
     <div class="wrap">
       <header>
-        <span class="brand"><img src="/icon.svg" alt="" />CT9 Finance</span>
+        <span class="brand"><img class="logo-light" src="/imgs/Logo_Light_No_Word.png" alt="" /><img class="logo-dark" src="/imgs/Logo_Dark_No_Word.png" alt="" />CT9 Finance</span>
         <span id="net" class="pill" role="status">Đang mất mạng</span>
       </header>
 

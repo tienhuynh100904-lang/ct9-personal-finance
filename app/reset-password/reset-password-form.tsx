@@ -3,7 +3,7 @@
 import { Check, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { AuthAlert, CoinSpinner } from '@/components/app/auth-ui'
+import { CoinSpinner } from '@/components/app/auth-ui'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -20,7 +20,6 @@ export function ResetPasswordForm({ email }: { email: string | null }) {
   /** Set once the confirmation field loses focus, so "doesn't match" isn't shown while it is still being typed. */
   const [confirmTouched, setConfirmTouched] = useState(false)
   const [errors, setErrors] = useState<{ newPassword?: string }>({})
-  const [formError, setFormError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const check = checkPassword(newPassword, email)
@@ -32,7 +31,6 @@ export function ResetPasswordForm({ email }: { email: string | null }) {
   function submit() {
     if (!ready) return
     setErrors({})
-    setFormError(null)
     startTransition(async () => {
       const result = await runAction(() => resetPassword({ newPassword }))
       if (!result) return
@@ -46,7 +44,8 @@ export function ResetPasswordForm({ email }: { email: string | null }) {
         return
       }
       setErrors(result.fieldErrors ?? {})
-      setFormError(result.error)
+      // A problem with the new password itself is shown under that field; anything else is a toast.
+      if (!result.fieldErrors?.newPassword) toast.error(result.error)
     })
   }
 
@@ -95,8 +94,6 @@ export function ResetPasswordForm({ email }: { email: string | null }) {
           required
         />
       </Field>
-
-      {formError && !errors.newPassword ? <AuthAlert key={formError}>{formError}</AuthAlert> : null}
 
       {ready ? (
         <Button type="submit" size="lg" className="btn-sheen rise-in w-full" disabled={pending}>

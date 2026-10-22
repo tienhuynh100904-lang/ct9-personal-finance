@@ -17,8 +17,8 @@ export default function manifest(): MetadataRoute.Manifest {
     // would also paint the navigation bar on Android 14 and older.
     background_color: THEME_COLORS.dark,
     icons: [
-      { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml' },
-      { src: '/apple-icon', sizes: '180x180', type: 'image/png' },
+      { src: '/imgs/Logo_Dark.png', sizes: '500x500', type: 'image/png', purpose: 'any' },
+      { src: '/imgs/Logo_Dark.png', sizes: '500x500', type: 'image/png', purpose: 'maskable' },
     ],
     // Long-press the app icon (Android/Chrome): jump straight into logging.
     shortcuts: [

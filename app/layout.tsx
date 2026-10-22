@@ -20,6 +20,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: 'CT9 Finance', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
+  // Favicon follows the browser's own light/dark (the tab strip), not the in-app theme choice.
+  icons: {
+    icon: [
+      { url: '/imgs/favicon-light.png', type: 'image/png', sizes: '128x128', media: '(prefers-color-scheme: light)' },
+      { url: '/imgs/favicon-dark.png', type: 'image/png', sizes: '128x128', media: '(prefers-color-scheme: dark)' },
+    ],
+    apple: { url: '/imgs/Logo_Dark.png', type: 'image/png' },
+  },
 }
 
 export const viewport: Viewport = {

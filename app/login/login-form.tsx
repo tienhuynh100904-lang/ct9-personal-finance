@@ -3,10 +3,11 @@
 import { Eye, EyeOff, LockKeyhole, LogIn, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { useActionState, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AuthAlert, CoinSpinner, FieldIcon } from '@/components/app/auth-ui'
+import { CoinSpinner, FieldIcon } from '@/components/app/auth-ui'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { signIn, type LoginState } from '@/lib/actions/auth'
+import { toast } from '@/lib/toast'
 
 const initialState: LoginState = { error: null, email: '' }
 
@@ -24,6 +25,11 @@ export function LoginForm() {
   const [state, formAction, pending] = useActionState(signIn, initialState)
   const [showPassword, setShowPassword] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+
+  // Each failed attempt returns a new state object, so the same message is shown again on a repeat failure.
+  useEffect(() => {
+    if (state.error) toast.error(state.error)
+  }, [state])
 
   // Signed out on this device: the offline page should no longer list the previous account's items.
   useEffect(() => {
@@ -92,8 +98,6 @@ export function LoginForm() {
           </button>
         </div>
       </Field>
-
-      {state.error ? <AuthAlert key={state.error}>{state.error}</AuthAlert> : null}
 
       <Button type="submit" size="lg" className="btn-sheen w-full" disabled={pending}>
         {pending ? <CoinSpinner /> : <LogIn className="icon-hover-wiggle size-4" aria-hidden />}

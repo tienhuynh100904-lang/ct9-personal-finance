@@ -18,9 +18,9 @@ try {
 }
 
 // Bump when the offline page changes shape; its content is also refreshed whenever the app is open.
-const OFFLINE_CACHE = 'ct9-offline-v2'
+const OFFLINE_CACHE = 'ct9-offline-v3'
 const OFFLINE_URL = '/offline.html'
-const OFFLINE_FILES = [OFFLINE_URL, '/offline-db.js', '/icon.svg']
+const OFFLINE_FILES = [OFFLINE_URL, '/offline-db.js', '/imgs/Logo_Light_No_Word.png', '/imgs/Logo_Dark_No_Word.png']
 const SYNC_TAG = 'ct9-flush'
 const SYNC_URL = '/api/offline/transactions'
 
@@ -169,7 +169,7 @@ async function sendQueue() {
   if (sent > 0 && windows.length === 0 && canNotify) {
     await self.registration.showNotification('CT9 Finance', {
       body: `Đã gửi ${sent} khoản ghi lúc mất mạng.`,
-      icon: '/apple-icon',
+      icon: '/imgs/Logo_Dark_No_Word.png',
       tag: 'ct9-offline-sync',
       data: { url: '/transactions' },
     })
@@ -214,7 +214,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'CT9 Finance', {
       body: data.body || '',
-      icon: '/apple-icon',
+      icon: '/imgs/Logo_Dark_No_Word.png',
       // One reminder at a time: a new one replaces an unread one instead of piling up.
       tag: 'ct9-daily-reminder',
       data: { url: data.url || '/' },
