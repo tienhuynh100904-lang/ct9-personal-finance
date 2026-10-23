@@ -21,6 +21,7 @@ export type Database = {
           occurred_on: string
           note: string | null
           from_savings: boolean
+          cut_candidate: boolean
           created_at: string
           updated_at: string
         }
@@ -34,6 +35,7 @@ export type Database = {
           occurred_on: string
           note?: string | null
           from_savings?: boolean
+          cut_candidate?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -46,6 +48,7 @@ export type Database = {
           amount?: number
           occurred_on?: string
           note?: string | null
+          cut_candidate?: boolean
           created_at?: string
           updated_at?: string
         }

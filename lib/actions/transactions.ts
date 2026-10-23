@@ -2,6 +2,7 @@
 
 import { refresh } from 'next/cache'
 import { getSession } from '../auth'
+import { isMissingColumn } from '../supabase/errors'
 import type { BudgetAlert } from '../finance'
 import { budgetCrossing, clearNoSpendMark } from '../transaction-effects'
 import { validateTransaction, type FieldErrors, type TransactionInput } from '../validation'
@@ -33,6 +34,13 @@ export async function saveTransaction(
   const previous = id
     ? (await supabase.from('transactions').select('kind, category, amount, occurred_on').eq('id', id).maybeSingle()).data
     : null
+
+  // Income and savings cannot be marked "Muốn giảm" (a database check), so an edit that turns a marked
+  // expense into one of those clears the mark first. Without the column this fails with "missing
+  // column", which is fine: there is nothing to clear.
+  if (id && (parsed.value.kind === 'income' || parsed.value.category === 'saving')) {
+    await supabase.from('transactions').update({ cut_candidate: false }).eq('id', id)
+  }
 
   const { data, error } = id
     ? await supabase.from('transactions').update(parsed.value).eq('id', id).select('id')
@@ -74,4 +82,28 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
 
   refresh()
   return { ok: true }
+}
+
+/** Marks or unmarks expenses as "Muốn giảm" (the month-end review). Savings and income are never marked. */
+export async function setCutCandidates(ids: string[], value: boolean): Promise<ActionResult & { updated?: number }> {
+  const { supabase } = await getSession()
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500 || !ids.every(isUuid) || typeof value !== 'boolean') {
+    return { ok: false, error: 'Giao dịch không hợp lệ.' }
+  }
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .update({ cut_candidate: value })
+    .in('id', ids)
+    .eq('kind', 'expense')
+    .neq('category', 'saving')
+    .select('id')
+  if (error) {
+    if (isMissingColumn(error)) return { ok: false, error: 'Hãy chạy lại toàn bộ supabase/schema.sql trong Supabase để dùng tính năng này.' }
+    console.error('setCutCandidates failed', error)
+    return { ok: false, error: 'Không cập nhật được. Vui lòng thử lại.' }
+  }
+
+  refresh()
+  return { ok: true, updated: data.length }
 }

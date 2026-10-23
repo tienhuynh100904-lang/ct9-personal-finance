@@ -1,12 +1,14 @@
 'use client'
 
-import { Download, Inbox, SlidersHorizontal, Upload, X } from 'lucide-react'
-import { useId, useLayoutEffect, useMemo, useState } from 'react'
+import { Download, Inbox, Scissors, SlidersHorizontal, Upload, X } from 'lucide-react'
+import { useId, useLayoutEffect, useMemo, useOptimistic, useState, useTransition } from 'react'
 import { MonthSwitcher, useMonthParam, type MonthValue } from '@/components/app/period'
 import { ItemColumns } from '@/components/charts/item-columns'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { toast } from '@/lib/toast'
+import { setCutCandidates } from '@/lib/actions/transactions'
+import { runAction } from '@/lib/run-action'
 import { Segmented } from '@/components/ui/choice'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Popover } from '@/components/ui/popover'
@@ -16,13 +18,16 @@ import { CATEGORY_META, KIND_LABEL, MEASURE_COLOR } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import { openComposer } from '@/lib/composer'
 import { buildTransactionsCsv, csvFileName } from '@/lib/csv'
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, monthOf, topExpenseItems, type Category, type Kind } from '@/lib/finance'
+import { cutSummary, EXPENSE_CATEGORIES, INCOME_CATEGORIES, monthOf, topExpenseItems, type Category, type Kind } from '@/lib/finance'
 import { formatDate, formatSignedVND, formatVND, formatWeekday, normalizeText } from '@/lib/format'
 import type { TransactionRecord } from '@/lib/types'
+import { CutSummaryCard } from './cut-summary'
 import { ImportCsvDialog } from './import-csv-dialog'
 import { TransactionRow } from './transaction-row'
 
 const PAGE_SIZE = 120
+/** `setCutCandidates` takes at most this many ids per call. */
+const MARK_CHUNK = 500
 
 function downloadCsv(rows: TransactionRecord[], kind: Kind, fileName: string) {
   const blob = new Blob([buildTransactionsCsv(rows, kind)], { type: 'text/csv;charset=utf-8' })
@@ -61,15 +66,42 @@ export function TransactionsView({
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
   const filtersId = useId()
 
   // Next.js keeps this page mounted (hidden) when you navigate away: don't leave the panel open.
-  useLayoutEffect(() => () => setFiltersOpen(false), [])
+  useLayoutEffect(
+    () => () => {
+      setFiltersOpen(false)
+      setReviewing(false)
+    },
+    [],
+  )
+
+  // "Muốn giảm" ticks show at once and are saved in the background (they revert on a failure).
+  const [rows, applyMark] = useOptimistic(transactions, (state, change: { ids: Set<string>; value: boolean }) =>
+    state.map((t) => (change.ids.has(t.id) ? { ...t, cut_candidate: change.value } : t)),
+  )
+  const [, startMark] = useTransition()
+  // Older databases have no such column: the month-end review is then hidden.
+  const cutAvailable = useMemo(() => transactions.some((t) => typeof t.cut_candidate === 'boolean'), [transactions])
+
+  function mark(ids: string[], value: boolean) {
+    if (ids.length === 0) return
+    startMark(async () => {
+      applyMark({ ids: new Set(ids), value })
+      for (let i = 0; i < ids.length; i += MARK_CHUNK) {
+        const result = await runAction(() => setCutCandidates(ids.slice(i, i + MARK_CHUNK), value))
+        if (result && !result.ok) return void toast.error(result.error)
+        if (!result) return
+      }
+    })
+  }
   const [limit, setLimit] = useState(PAGE_SIZE)
 
   const inPeriod = useMemo(
-    () => (month === 'all' ? transactions : transactions.filter((t) => monthOf(t.occurred_on) === month)),
-    [transactions, month],
+    () => (month === 'all' ? rows : rows.filter((t) => monthOf(t.occurred_on) === month)),
+    [rows, month],
   )
 
   // Everything except the item filter: the chart is drawn from this, so picking a bar does not collapse it to one bar.
@@ -91,6 +123,11 @@ export function TransactionsView({
     () => (activeItem === null ? matching : matching.filter((t) => t.kind === 'expense' && t.item === activeItem)),
     [matching, activeItem],
   )
+
+  // The review looks at the whole period, whatever the search and filters show.
+  const cut = useMemo(() => cutSummary(inPeriod), [inPeriod])
+  const markable = useMemo(() => filtered.filter((t) => t.kind === 'expense' && t.category !== 'saving'), [filtered])
+  const allMarked = markable.length > 0 && markable.every((t) => t.cut_candidate)
 
   const totals = useMemo(() => {
     let income = 0
@@ -239,15 +276,23 @@ export function TransactionsView({
         </Card>
       ) : null}
 
+      {cutAvailable && reviewing ? <CutSummaryCard summary={cut} periodLabel={periodLabel} /> : null}
+
       <div className="rounded-2xl border border-line bg-surface shadow-[var(--shadow-1)]">
-        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3 sm:px-5">
           <p className="text-sm whitespace-nowrap text-muted">
             <span className="font-medium text-ink">{filtered.length}</span> giao dịch<span className="max-sm:hidden"> · {periodLabel}</span>
           </p>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
+          {cutAvailable ? (
+            <Button variant={reviewing ? 'secondary' : 'ghost'} size="sm" aria-pressed={reviewing} onClick={() => setReviewing((on) => !on)}>
+              <Scissors className="size-4" aria-hidden />
+              {reviewing ? 'Xong' : 'Đánh giá'}
+            </Button>
+          ) : null}
           <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="size-4 transition-transform duration-200 group-hover:-translate-y-0.5" aria-hidden />
-            Nhập CSV
+            <span className="max-sm:sr-only">Nhập CSV</span>
           </Button>
           <Popover
             label="Xuất CSV"
@@ -257,7 +302,7 @@ export function TransactionsView({
             trigger={({ open, ...props }) => (
               <Button variant="ghost" size="sm" disabled={filtered.length === 0} className={open ? 'bg-surface-2' : undefined} {...props}>
                 <Download className="size-4 transition-transform duration-200 group-hover:translate-y-0.5" aria-hidden />
-                Xuất CSV
+                <span className="max-sm:sr-only">Xuất CSV</span>
               </Button>
             )}
           >
@@ -291,6 +336,29 @@ export function TransactionsView({
           </Popover>
           </div>
         </div>
+
+        {reviewing ? (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface-2/60 px-4 py-2.5 text-sm sm:px-5">
+            <p className="text-ink-2">
+              Tích các khoản chi bạn muốn giảm.{' '}
+              <span className="font-medium text-ink">{cut.count > 0 ? `Đã chọn ${cut.count} khoản · ${formatVND(cut.amount)}` : 'Chưa chọn khoản nào'}</span>
+            </p>
+            {markable.length > 0 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  mark(
+                    markable.filter((t) => Boolean(t.cut_candidate) === allMarked).map((t) => t.id),
+                    !allMarked,
+                  )
+                }
+                className="inline-flex min-h-9 items-center font-medium text-brand-ink hover:underline pointer-coarse:min-h-11"
+              >
+                {allMarked ? 'Bỏ chọn' : 'Chọn'} cả {markable.length} khoản đang lọc
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {filtered.length === 0 ? (
           <EmptyState
@@ -330,7 +398,7 @@ export function TransactionsView({
                   </div>
                   <ul>
                     {items.map((t) => (
-                      <TransactionRow key={t.id} transaction={t} />
+                      <TransactionRow key={t.id} transaction={t} onCutChange={reviewing ? (checked) => mark([t.id], checked) : undefined} />
                     ))}
                   </ul>
                 </section>

@@ -5,7 +5,7 @@
 | Trang | Tương ứng trong Excel |
 |---|---|
 | **Tổng quan** `/` | **Thẻ "Hôm nay"**: còn được chi bao nhiêu hôm nay, chuỗi ngày ghi chép, dải 7 ngày, ghi nhanh một chạm. **Khoản định kỳ** đến hạn chờ xác nhận. Bên dưới: **cảnh báo ngân sách** (nhóm chi đạt 80% hoặc vượt), số liệu tháng, thanh ngân sách từng nhóm, cơ cấu chi tiêu, top khoản chi, xu hướng 12 tháng |
-| **Thu chi** `/transactions` | (Trên điện thoại vào từ Tổng quan → "Xem tất cả"; máy tính có mục ở thanh bên.) Sheet *Thu Chi*: thêm / sửa / xoá giao dịch, lọc theo tháng, loại, phân loại, tìm kiếm không dấu, xuất và **nhập CSV** (cùng 5 cột, xem trước, bỏ qua dòng trùng, hoàn tác được) mở được bằng Excel |
+| **Thu chi** `/transactions` | (Trên điện thoại vào từ Tổng quan → "Xem tất cả"; máy tính có mục ở thanh bên.) Sheet *Thu Chi*: thêm / sửa / xoá giao dịch, lọc theo tháng, loại, phân loại, tìm kiếm không dấu, xuất và **nhập CSV** (cùng 5 cột, xem trước, bỏ qua dòng trùng, hoàn tác được) mở được bằng Excel. **Đánh giá cuối tháng**: bấm "Đánh giá" rồi tích các khoản chi muốn giảm; app so sánh chi tiêu và số còn lại khi có và không có các khoản đó |
 | **Phân tích** `/analytics` | Sheet *Phân loại thu chi*: tổng quan cả năm, 5 biểu đồ, bảng 12 tháng (số tiền / tỷ trọng), chi tiết từng khoản mục |
 | **Ngân sách** `/budget` | Sheet *Lập ngân sách*: dự kiến, thực tế, chênh lệch cho thu nhập, chi tiêu, tiết kiệm/đầu tư |
 | **Mục tiêu** `/goals` | File *Theo dõi mục tiêu tài chính*: Quỹ khẩn cấp có sẵn + quỹ mục tiêu tự tạo; chia tiền tiết kiệm vào quỹ, tính số cần gửi mỗi tháng, lãi theo ngày, cột mốc 25/50/75/100%, đánh giá kế hoạch có khả thi |

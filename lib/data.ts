@@ -20,15 +20,21 @@ export async function getTransactionsForYear(year: number): Promise<TransactionR
 
 const TRANSACTION_COLUMNS = `id, kind, item_id, category, amount, occurred_on, note, created_at, ${TRANSACTION_ITEM_JOIN}`
 
-/** Transactions with `occurred_on` in `[from, to]`, newest first. */
+/**
+ * Transactions with `occurred_on` in `[from, to]`, newest first. `from_savings` ("Chi từ quỹ") and
+ * `cut_candidate` ("Muốn giảm") arrive with newer schema.sql versions: until it is run again, read
+ * without the columns the database does not have yet.
+ */
 async function readTransactions(from: string, to: string): Promise<TransactionRecord[]> {
-  try {
-    return await readTransactionPages(from, to, `${TRANSACTION_COLUMNS}, from_savings`)
-  } catch (error) {
-    // `from_savings` ("Chi từ quỹ") arrives with a newer schema.sql: until it is run, read without it.
-    if (!(error instanceof MissingColumnError)) throw error
-    return readTransactionPages(from, to, TRANSACTION_COLUMNS)
+  const tiers = [`${TRANSACTION_COLUMNS}, from_savings, cut_candidate`, `${TRANSACTION_COLUMNS}, from_savings`, TRANSACTION_COLUMNS]
+  for (const columns of tiers.slice(0, -1)) {
+    try {
+      return await readTransactionPages(from, to, columns)
+    } catch (error) {
+      if (!(error instanceof MissingColumnError)) throw error
+    }
   }
+  return readTransactionPages(from, to, TRANSACTION_COLUMNS)
 }
 
 class MissingColumnError extends Error {}

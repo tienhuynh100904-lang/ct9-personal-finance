@@ -487,6 +487,13 @@ create policy "Owner full access" on public.goal_allocations
 -- (it shows in Thu chi and in the budgets), but the app leaves it out of the month's surplus by
 -- default, and its goal_allocations row (transaction_id) takes the money out of the goal.
 alter table public.transactions add column if not exists from_savings boolean not null default false;
+
+-- "Muốn giảm": một khoản chi bạn đánh dấu khi xem lại cuối tháng, để so sánh chi tiêu nếu bỏ khoản đó.
+-- Chỉ dành cho khoản chi (không phải thu, không phải Tiết kiệm/Đầu tư).
+alter table public.transactions add column if not exists cut_candidate boolean not null default false;
+alter table public.transactions drop constraint if exists transactions_cut_candidate_expense;
+alter table public.transactions add constraint transactions_cut_candidate_expense
+  check (not cut_candidate or (kind = 'expense' and category <> 'saving'));
 alter table public.goal_allocations
   add column if not exists transaction_id uuid references public.transactions (id) on delete cascade;
 create unique index if not exists goal_allocations_transaction_key

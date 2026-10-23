@@ -34,6 +34,11 @@ export type Txn = {
    * default it is left out of the month's surplus, because it was not paid from that month's income.
    */
   from_savings?: boolean
+  /**
+   * "Muốn giảm": an expense marked at the month-end review as something to cut. Missing until the
+   * database has the column; only spending (not savings) can carry it.
+   */
+  cut_candidate?: boolean
 }
 
 export type BudgetRow = {
@@ -252,6 +257,75 @@ export function topExpenseItems(
   return [...groups.entries()]
     .map(([item, g]) => ({ item, total: g.total, count: g.count, share: ratio(g.total, grandTotal) }))
     .sort((a, b) => b.total - a.total || a.item.localeCompare(b.item, 'vi'))
+}
+
+export type CutSummary = {
+  /** Expenses marked "Muốn giảm" and their total. */
+  count: number
+  amount: number
+  /** The period's spending (savings excluded) as it is, and as it would be without the marked expenses. */
+  spendingBefore: number
+  spendingAfter: number
+  /** Income − spending − saving, as it is and without the marked expenses. */
+  balanceBefore: number
+  balanceAfter: number
+  /** Marked amount as a share (0–1) of the period's spending. */
+  share: number
+  /** Each spending type: as it is and without the marked expenses. */
+  byCategory: { category: SpendingCategory; before: number; after: number }[]
+  /** Marked items, biggest first. */
+  items: { item: string; count: number; amount: number }[]
+}
+
+/**
+ * "What if I had not spent this": the period's spending with and without the expenses marked
+ * "Muốn giảm". Pass the transactions of one period (a month, or a year).
+ */
+export function cutSummary(txns: readonly Txn[]): CutSummary {
+  let income = 0
+  let saving = 0
+  let spendingBefore = 0
+  let amount = 0
+  let count = 0
+  const before: Record<SpendingCategory, number> = { essential: 0, non_essential: 0, incidental: 0 }
+  const marked: Record<SpendingCategory, number> = { essential: 0, non_essential: 0, incidental: 0 }
+  const items = new Map<string, { count: number; amount: number }>()
+
+  for (const t of txns) {
+    if (t.kind === 'income') {
+      income += t.amount
+    } else if (t.category === 'saving') {
+      saving += t.amount
+    } else {
+      const category = t.category as SpendingCategory
+      spendingBefore += t.amount
+      before[category] += t.amount
+      if (t.cut_candidate) {
+        amount += t.amount
+        count += 1
+        marked[category] += t.amount
+        const entry = items.get(t.item) ?? { count: 0, amount: 0 }
+        entry.count += 1
+        entry.amount += t.amount
+        items.set(t.item, entry)
+      }
+    }
+  }
+
+  const spendingAfter = spendingBefore - amount
+  return {
+    count,
+    amount,
+    spendingBefore,
+    spendingAfter,
+    balanceBefore: income - spendingBefore - saving,
+    balanceAfter: income - spendingAfter - saving,
+    share: ratio(amount, spendingBefore),
+    byCategory: SPENDING_CATEGORIES.map((category) => ({ category, before: before[category], after: before[category] - marked[category] })),
+    items: [...items.entries()]
+      .map(([item, v]) => ({ item, ...v }))
+      .sort((a, b) => b.amount - a.amount || a.item.localeCompare(b.item, 'vi')),
+  }
 }
 
 /** Row 34 of "Phân loại thu chi": one item's amount per month. */

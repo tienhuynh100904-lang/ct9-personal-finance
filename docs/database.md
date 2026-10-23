@@ -205,6 +205,7 @@ Database từ chối ghi kiểu `kind = 'income'` mà `category = 'essential'` (
 | `amount` | bigint | Số tiền **đồng, số nguyên**, lớn hơn 0 và nhỏ hơn 1.000 tỷ |
 | `occurred_on` | date | Ngày thu/chi (chỉ ngày, không có giờ) |
 | `note` | text | Ghi chú, tối đa 500 ký tự, được để trống |
+| `cut_candidate` | boolean | "Muốn giảm": khoản chi bạn đánh dấu khi xem lại cuối tháng (mặc định `false`). Chỉ dành cho khoản chi không thuộc nhóm Tiết kiệm/Đầu tư, database có ràng buộc `transactions_cut_candidate_expense`. Cần chạy lại `schema.sql`, chưa chạy thì mục Đánh giá ở trang Thu chi bị ẩn |
 | `created_at` | timestamptz | Lúc tạo (dùng để sắp xếp giao dịch cùng ngày) |
 | `updated_at` | timestamptz | Lúc sửa gần nhất, trigger tự cập nhật |
 

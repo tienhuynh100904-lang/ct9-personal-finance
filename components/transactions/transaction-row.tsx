@@ -1,6 +1,7 @@
 'use client'
 
 import { ArrowDownLeft, ArrowUpRight, PiggyBank } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import { openComposer } from '@/lib/composer'
@@ -12,18 +13,22 @@ export function TransactionRow({
   transaction: t,
   showDate = false,
   onSelect,
+  onCutChange,
 }: {
   transaction: TransactionRecord
   showDate?: boolean
   /** Replaces the default "open the edit dialog" (used when the row lives inside another dialog). */
   onSelect?: (transaction: TransactionRecord) => void
+  /** Month-end review: a checkbox at the end of each spending row marks it "Muốn giảm" in one tap. */
+  onCutChange?: (checked: boolean) => void
 }) {
   const meta = CATEGORY_META[t.category]
   const isIncome = t.kind === 'income'
   const Icon = isIncome ? ArrowDownLeft : t.category === 'saving' ? PiggyBank : ArrowUpRight
+  const markable = t.kind === 'expense' && t.category !== 'saving'
 
   return (
-    <li>
+    <li className="flex items-center">
       <button
         type="button"
         onClick={() =>
@@ -43,7 +48,7 @@ export function TransactionRow({
             },
           })
         }
-        className="group flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 sm:px-3"
+        className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 sm:px-3"
       >
         <span
           aria-hidden
@@ -65,6 +70,11 @@ export function TransactionRow({
                 Chi từ quỹ
               </span>
             ) : null}
+            {t.cut_candidate ? (
+              <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--s-warning)_22%,var(--surface))] px-1.5 py-px text-[10px] font-semibold text-warning">
+                Muốn giảm
+              </span>
+            ) : null}
             {t.note && !showDate ? <span className="hidden min-w-0 truncate sm:inline">· {t.note}</span> : null}
           </span>
         </span>
@@ -77,6 +87,19 @@ export function TransactionRow({
           {formatSignedVND(isIncome ? t.amount : -t.amount)}
         </span>
       </button>
+      {onCutChange ? (
+        markable ? (
+          <Checkbox
+            checked={Boolean(t.cut_candidate)}
+            onChange={(e) => onCutChange(e.target.checked)}
+            className="w-10 shrink-0 justify-center gap-0 sm:w-11"
+          >
+            <span className="sr-only">Muốn giảm: {t.item}, {formatSignedVND(-t.amount)}</span>
+          </Checkbox>
+        ) : (
+          <span aria-hidden className="w-10 shrink-0 sm:w-11" />
+        )
+      ) : null}
     </li>
   )
 }

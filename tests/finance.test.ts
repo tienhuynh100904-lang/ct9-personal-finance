@@ -6,6 +6,7 @@ import {
   buildBudgetPlan,
   buildYearReport,
   compareBudget,
+  cutSummary,
   itemMonthly,
   monthSnapshot,
   topExpenseItems,
@@ -132,4 +133,58 @@ test('spending paid from a goal is left out of the surplus unless asked for', ()
   // What the year really added (income − spending) does not depend on the choice.
   assert.equal(excluded.totals.accumulation, 1_000_000)
   assert.equal(included.totals.accumulation, 1_000_000)
+})
+
+describe('cutSummary ("Nếu bỏ các khoản muốn giảm")', () => {
+  const march: Txn[] = [
+    { kind: 'income', item: 'Lương', category: 'main', amount: 10_000_000, occurred_on: '2026-03-05' },
+    { kind: 'expense', item: 'Ăn uống', category: 'essential', amount: 3_000_000, occurred_on: '2026-03-10' },
+    { kind: 'expense', item: 'Trà sữa', category: 'non_essential', amount: 45_000, occurred_on: '2026-03-11', cut_candidate: true },
+    { kind: 'expense', item: 'Trà sữa', category: 'non_essential', amount: 55_000, occurred_on: '2026-03-18', cut_candidate: true },
+    { kind: 'expense', item: 'Đi nhậu', category: 'non_essential', amount: 900_000, occurred_on: '2026-03-20', cut_candidate: true },
+    { kind: 'expense', item: 'Giải trí', category: 'non_essential', amount: 100_000, occurred_on: '2026-03-22' },
+    { kind: 'expense', item: 'Tiết kiệm', category: 'saving', amount: 2_000_000, occurred_on: '2026-03-28' },
+  ]
+  const s = cutSummary(march)
+
+  test('totals what is marked and what spending would be without it', () => {
+    assert.equal(s.count, 3)
+    assert.equal(s.amount, 1_000_000)
+    assert.equal(s.spendingBefore, 4_100_000)
+    assert.equal(s.spendingAfter, 3_100_000)
+    assert.equal(s.share, 1_000_000 / 4_100_000)
+  })
+
+  test('the balance gains exactly what was cut; savings are not spending', () => {
+    assert.equal(s.balanceBefore, 10_000_000 - 4_100_000 - 2_000_000)
+    assert.equal(s.balanceAfter, s.balanceBefore + 1_000_000)
+  })
+
+  test('splits by spending type and by item, biggest first', () => {
+    const nonEssential = s.byCategory.find((c) => c.category === 'non_essential')
+    assert.deepEqual(nonEssential, { category: 'non_essential', before: 1_100_000, after: 100_000 })
+    assert.deepEqual(s.byCategory.find((c) => c.category === 'essential'), { category: 'essential', before: 3_000_000, after: 3_000_000 })
+    assert.deepEqual(s.items, [
+      { item: 'Đi nhậu', count: 1, amount: 900_000 },
+      { item: 'Trà sữa', count: 2, amount: 100_000 },
+    ])
+  })
+
+  test('nothing marked means no change, and a savings or income mark is ignored', () => {
+    const none = cutSummary(march.map((t) => ({ ...t, cut_candidate: false })))
+    assert.equal(none.amount, 0)
+    assert.equal(none.spendingAfter, none.spendingBefore)
+    const stray = cutSummary([
+      { kind: 'expense', item: 'Tiết kiệm', category: 'saving', amount: 1_000_000, occurred_on: '2026-03-01', cut_candidate: true },
+      { kind: 'income', item: 'Lương', category: 'main', amount: 5_000_000, occurred_on: '2026-03-01', cut_candidate: true },
+    ])
+    assert.equal(stray.count, 0)
+    assert.equal(stray.balanceAfter, stray.balanceBefore)
+  })
+
+  test('an empty period is all zeros', () => {
+    const empty = cutSummary([])
+    assert.equal(empty.share, 0)
+    assert.equal(empty.spendingBefore, 0)
+  })
 })
