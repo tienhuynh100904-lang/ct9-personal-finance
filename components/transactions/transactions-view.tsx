@@ -18,7 +18,7 @@ import { CATEGORY_META, KIND_LABEL, MEASURE_COLOR } from '@/lib/categories'
 import { cn } from '@/lib/cn'
 import { openComposer } from '@/lib/composer'
 import { buildTransactionsCsv, csvFileName } from '@/lib/csv'
-import { cutSummary, EXPENSE_CATEGORIES, INCOME_CATEGORIES, monthOf, topExpenseItems, type Category, type Kind } from '@/lib/finance'
+import { buildBudgetPlan, cutBudget, cutSummary, EXPENSE_CATEGORIES, INCOME_CATEGORIES, monthOf, topExpenseItems, type BudgetRow, type Category, type Kind } from '@/lib/finance'
 import { formatDate, formatSignedVND, formatVND, formatWeekday, normalizeText } from '@/lib/format'
 import type { TransactionRecord } from '@/lib/types'
 import { CutSummaryCard } from './cut-summary'
@@ -51,6 +51,7 @@ export function TransactionsView({
   defaultMonth,
   current,
   transactions,
+  budgetRows,
 }: {
   year: number
   years: number[]
@@ -58,6 +59,8 @@ export function TransactionsView({
   /** This year and month in app time, for the "Hiện tại" button. */
   current: { year: number; month: number }
   transactions: TransactionRecord[]
+  /** The year's planned amounts, for the review's "Ngân sách" column. */
+  budgetRows: BudgetRow[]
 }) {
   const [month, setMonth] = useMonthParam(defaultMonth)
   const [kind, setKind] = useState<'all' | Kind>('all')
@@ -126,6 +129,11 @@ export function TransactionsView({
 
   // The review looks at the whole period, whatever the search and filters show.
   const cut = useMemo(() => cutSummary(inPeriod), [inPeriod])
+  const budget = useMemo(() => {
+    const planned = cutBudget(buildBudgetPlan(budgetRows), month)
+    // No plan for this period: the column would only show zeros.
+    return planned.spending > 0 || planned.balance !== 0 ? planned : null
+  }, [budgetRows, month])
   const markable = useMemo(() => filtered.filter((t) => t.kind === 'expense' && t.category !== 'saving'), [filtered])
   const allMarked = markable.length > 0 && markable.every((t) => t.cut_candidate)
 
@@ -276,7 +284,7 @@ export function TransactionsView({
         </Card>
       ) : null}
 
-      {cutAvailable && reviewing ? <CutSummaryCard summary={cut} periodLabel={periodLabel} /> : null}
+      {cutAvailable && reviewing ? <CutSummaryCard summary={cut} budget={budget} periodLabel={periodLabel} /> : null}
 
       <div className="rounded-2xl border border-line bg-surface shadow-[var(--shadow-1)]">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3 sm:px-5">

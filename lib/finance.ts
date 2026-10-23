@@ -328,6 +328,23 @@ export function cutSummary(txns: readonly Txn[]): CutSummary {
   }
 }
 
+export type CutBudget = {
+  /** Planned spending (the three spending types, savings excluded) and each type. */
+  spending: number
+  byCategory: Record<SpendingCategory, number>
+  /** Planned income − spending − saving. */
+  balance: number
+}
+
+/** The budget of one month (1–12) or of the whole year (`'all'`), in the same terms as `cutSummary`. */
+export function cutBudget(plan: BudgetPlan, month: number | 'all'): CutBudget {
+  const at = (category: BudgetCategory) => (month === 'all' ? sum(plan[category]) : (plan[category][month - 1] ?? 0))
+  const byCategory = { essential: at('essential'), non_essential: at('non_essential'), incidental: at('incidental') }
+  const spending = byCategory.essential + byCategory.non_essential + byCategory.incidental
+  const income = at('main') + at('side') + at('irregular')
+  return { spending, byCategory, balance: income - spending - at('saving') }
+}
+
 /** Row 34 of "Phân loại thu chi": one item's amount per month. */
 export function itemMonthly(txns: readonly Txn[], year: number, kind: Kind, item: string): Monthly {
   const result = zeros()

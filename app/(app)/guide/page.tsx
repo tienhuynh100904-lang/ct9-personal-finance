@@ -408,7 +408,7 @@ export default function GuidePage() {
             <>
               <strong>Đánh giá cuối tháng</strong>: bấm <strong>Đánh giá</strong> ở đầu danh sách, rồi tích ô bên phải các khoản chi bạn muốn giảm (có nút chọn cả danh sách
               đang lọc). Khung <strong>Nếu bỏ các khoản muốn giảm</strong> luôn hiện khi đang đánh giá: chi tiêu và số còn lại hiện tại so với khi không có các khoản đó, theo từng nhóm và khoản mục
-              (chưa chọn khoản nào thì hai cột bằng nhau). Bấm <strong>Xong</strong> để ẩn. Thu nhập và nhóm Tiết kiệm/Đầu tư không đánh dấu được.
+              (chưa chọn khoản nào thì hai cột bằng nhau). Trên máy tính có thêm cột <strong>Ngân sách</strong> của tháng đó để so sánh. Bấm <strong>Xong</strong> để ẩn. Thu nhập và nhóm Tiết kiệm/Đầu tư không đánh dấu được.
             </>,
             <>
               <strong>Xuất CSV</strong>: tải danh sách đang lọc về máy, mở được bằng Excel.

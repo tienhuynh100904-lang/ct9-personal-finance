@@ -1,7 +1,7 @@
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { CATEGORY_META } from '@/lib/categories'
 import { cn } from '@/lib/cn'
-import type { CutSummary } from '@/lib/finance'
+import type { CutBudget, CutSummary } from '@/lib/finance'
 import { formatPercent, formatSignedVND, formatVND } from '@/lib/format'
 
 const MAX_ITEMS = 5
@@ -11,14 +11,21 @@ const MAX_ITEMS = 5
  * "Muốn giảm". It always shows the full comparison while reviewing (with nothing marked both columns are equal). It compares the same period with and without those expenses, so the saving is exact
  * for what already happened (it does not predict next month).
  */
-export function CutSummaryCard({ summary, periodLabel }: { summary: CutSummary; periodLabel: string }) {
+export function CutSummaryCard({ summary, budget, periodLabel }: { summary: CutSummary; budget: CutBudget | null; periodLabel: string }) {
   const { count, amount } = summary
   const rows = [
-    { label: 'Chi tiêu', before: summary.spendingBefore, after: summary.spendingAfter, strong: true },
+    { label: 'Chi tiêu', planned: budget?.spending ?? 0, before: summary.spendingBefore, after: summary.spendingAfter, strong: true },
     ...summary.byCategory
-      .filter((c) => c.before > 0)
-      .map((c) => ({ label: CATEGORY_META[c.category].label, before: c.before, after: c.after, color: CATEGORY_META[c.category].color, strong: false })),
-    { label: 'Còn lại', before: summary.balanceBefore, after: summary.balanceAfter, strong: true },
+      .map((c) => ({
+        label: CATEGORY_META[c.category].label,
+        planned: budget?.byCategory[c.category] ?? 0,
+        before: c.before,
+        after: c.after,
+        color: CATEGORY_META[c.category].color,
+        strong: false,
+      }))
+      .filter((row) => row.before > 0 || row.planned > 0),
+    { label: 'Còn lại', planned: budget?.balance ?? 0, before: summary.balanceBefore, after: summary.balanceAfter, strong: true },
   ]
 
   return (
@@ -38,6 +45,12 @@ export function CutSummaryCard({ summary, periodLabel }: { summary: CutSummary; 
           <thead>
             <tr className="text-xs text-muted">
               <th scope="col" className="pb-1.5 text-left font-medium" />
+              {budget ? (
+                // Phones keep to the two columns: the plan is a desktop comparison.
+                <th scope="col" className="hidden pb-1.5 text-right font-medium sm:table-cell">
+                  Ngân sách
+                </th>
+              ) : null}
               <th scope="col" className="pb-1.5 text-right font-medium">
                 Hiện tại
               </th>
@@ -57,6 +70,9 @@ export function CutSummaryCard({ summary, periodLabel }: { summary: CutSummary; 
                       {row.label}
                     </span>
                   </th>
+                  {budget ? (
+                    <td className="hidden py-2 text-right tabular-nums text-muted sm:table-cell">{row.planned < 0 ? formatSignedVND(row.planned) : formatVND(row.planned)}</td>
+                  ) : null}
                   <td className="py-2 text-right tabular-nums text-ink-2">{row.before < 0 ? formatSignedVND(row.before) : formatVND(row.before)}</td>
                   <td className={cn('py-2 text-right tabular-nums', row.strong ? 'font-semibold' : 'font-medium', changed && 'text-positive')}>
                     {row.after < 0 ? formatSignedVND(row.after) : formatVND(row.after)}

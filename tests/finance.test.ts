@@ -6,6 +6,7 @@ import {
   buildBudgetPlan,
   buildYearReport,
   compareBudget,
+  cutBudget,
   cutSummary,
   itemMonthly,
   monthSnapshot,
@@ -186,5 +187,30 @@ describe('cutSummary ("Nếu bỏ các khoản muốn giảm")', () => {
     const empty = cutSummary([])
     assert.equal(empty.share, 0)
     assert.equal(empty.spendingBefore, 0)
+  })
+})
+
+describe('cutBudget (the budget column of the review)', () => {
+  const plan = buildBudgetPlan([
+    { month: 3, category: 'main', amount: 12_000_000 },
+    { month: 3, category: 'essential', amount: 4_000_000 },
+    { month: 3, category: 'non_essential', amount: 1_000_000 },
+    { month: 3, category: 'incidental', amount: 500_000 },
+    { month: 3, category: 'saving', amount: 2_000_000 },
+    { month: 4, category: 'essential', amount: 3_000_000 },
+  ])
+
+  test('one month: spending excludes savings; balance = income − spending − saving', () => {
+    const march = cutBudget(plan, 3)
+    assert.equal(march.spending, 5_500_000)
+    assert.deepEqual(march.byCategory, { essential: 4_000_000, non_essential: 1_000_000, incidental: 500_000 })
+    assert.equal(march.balance, 12_000_000 - 5_500_000 - 2_000_000)
+  })
+
+  test('the whole year adds the months up; a month with no plan is zero', () => {
+    const year = cutBudget(plan, 'all')
+    assert.equal(year.spending, 8_500_000)
+    assert.equal(cutBudget(plan, 7).spending, 0)
+    assert.equal(cutBudget(plan, 7).balance, 0)
   })
 })

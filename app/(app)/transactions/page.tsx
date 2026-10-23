@@ -4,7 +4,7 @@ import { AddTransactionButton } from '@/components/app/navigation'
 import { PageHeader } from '@/components/app/page-header'
 import { TransactionsView } from '@/components/transactions/transactions-view'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getTransactionsForYear } from '@/lib/data'
+import { getBudgetRows, getTransactionsForYear } from '@/lib/data'
 import { YEAR_OPTIONS } from '@/lib/dates'
 import { resolveYear } from '@/lib/period'
 
@@ -27,7 +27,7 @@ export default function TransactionsPage({ searchParams }: PageProps<'/transacti
 
 async function Transactions({ searchParams }: Pick<PageProps<'/transactions'>, 'searchParams'>) {
   const { year, today } = await resolveYear(searchParams)
-  const transactions = await getTransactionsForYear(year)
+  const [transactions, budgetRows] = await Promise.all([getTransactionsForYear(year), getBudgetRows(year)])
   return (
     <TransactionsView
       year={year}
@@ -35,6 +35,7 @@ async function Transactions({ searchParams }: Pick<PageProps<'/transactions'>, '
       defaultMonth={year === today.year ? today.month : 'all'}
       current={{ year: today.year, month: today.month }}
       transactions={transactions}
+      budgetRows={budgetRows}
     />
   )
 }
