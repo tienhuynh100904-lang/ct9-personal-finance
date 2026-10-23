@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   experimental: {
     agentFeedback: true,
+    agentUpgrade: 'security',
     // Detects a dropped connection and retries page changes and Server Actions (saving a transaction)
     // made meanwhile once it is back; <OfflineBanner> tells the user.
     useOffline: true,
