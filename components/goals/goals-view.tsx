@@ -2,11 +2,13 @@
 
 import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, ChevronRight, CircleAlert, CircleCheck, PiggyBank, Plus, ShieldCheck, Sparkles, Target, Trash2, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
-import { useMemo, useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { StatTile } from '@/components/ui/stat-tile'
+import { panelId, tabId, Tabs } from '@/components/ui/tabs'
 import { deleteGoal } from '@/lib/actions/goals'
 import { cn } from '@/lib/cn'
 import { openComposer } from '@/lib/composer'
@@ -39,6 +41,23 @@ const PACE: Record<GoalPace, { label: string; className: string }> = {
   not_started: { label: 'Chưa bắt đầu', className: 'bg-surface-2 text-muted' },
 }
 
+type GoalsTab = 'funds' | 'deposits'
+const TABS_ID = 'goals'
+
+/** The open tab lives in the URL (`?tab=deposits`) and switching it is a shallow update, like the month picker. */
+function useTabParam(hasDeposits: boolean) {
+  const raw = useSearchParams().get('tab')
+  const tab: GoalsTab = raw === 'deposits' && hasDeposits ? 'deposits' : 'funds'
+  const setTab = useCallback((value: GoalsTab) => {
+    const params = new URLSearchParams(window.location.search)
+    if (value === 'funds') params.delete('tab')
+    else params.set('tab', value)
+    const query = params.toString()
+    window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname)
+  }, [])
+  return [tab, setTab] as const
+}
+
 type FormState = { open: boolean; kind: GoalKind; goal: GoalRecord | null; presetName?: string }
 
 /** What a goal asks you to save each month from now on (nothing once reached or before it starts). */
@@ -67,6 +86,9 @@ export function GoalsView({ data, items, usage, deposits }: { data: GoalsData; i
   const doneCount = progresses.filter((p) => p.pace === 'done' || p.goal.archived_at).length
   const verdict = feasibility(requiredMonthly, monthlySaving)
   const [year, month] = today.split('-').map(Number)
+
+  const [tab, setTab] = useTabParam(deposits !== null)
+  const openDeposits = deposits?.filter((d) => !d.closed_on).length ?? 0
 
   const [form, setForm] = useState<FormState>({ open: false, kind: 'custom', goal: null })
   // What the other goals need each month: the goal being edited is replaced by the live preview.
@@ -106,6 +128,26 @@ export function GoalsView({ data, items, usage, deposits }: { data: GoalsData; i
   return (
     <>
       <div className="space-y-4">
+      {deposits ? (
+        <Tabs
+          label="Mục tiêu"
+          idPrefix={TABS_ID}
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { value: 'funds', label: 'Quỹ mục tiêu', count: active.length },
+            { value: 'deposits', label: 'Khoản tiết kiệm', count: openDeposits },
+          ]}
+        />
+      ) : null}
+
+      {tab === 'deposits' && deposits ? (
+        // Same savings as the goals, but not taken out of them: a sum can be in a goal and in a deposit.
+        <div role="tabpanel" id={panelId(TABS_ID, 'deposits')} aria-labelledby={tabId(TABS_ID, 'deposits')}>
+          <DepositsSection deposits={deposits} pool={pool} today={today} />
+        </div>
+      ) : (
+      <div role="tabpanel" id={panelId(TABS_ID, 'funds')} aria-labelledby={tabId(TABS_ID, 'funds')} className="space-y-4">
       {/* The pool: what has been saved and is still free to put into goals. */}
       <section
         aria-labelledby="pool-title"
@@ -180,7 +222,7 @@ export function GoalsView({ data, items, usage, deposits }: { data: GoalsData; i
       <section aria-labelledby="goals-title" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="goals-title" className="text-[15px] font-semibold tracking-tight">
-            Các quỹ mục tiêu
+            Các quỹ ngắn hạn
           </h2>
           <Button onClick={() => openCreate()}>
             <Plus className="size-4 transition-transform duration-300 group-hover:rotate-90" aria-hidden />
@@ -227,9 +269,6 @@ export function GoalsView({ data, items, usage, deposits }: { data: GoalsData; i
         )}
       </section>
 
-      {/* Same savings as the goals, but not taken out of them: a sum can be in a goal and in a deposit. */}
-      {deposits ? <DepositsSection deposits={deposits} pool={pool} today={today} /> : null}
-
       {archived.length > 0 ? (
         <details className="group rounded-2xl border border-line bg-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
@@ -254,7 +293,8 @@ export function GoalsView({ data, items, usage, deposits }: { data: GoalsData; i
           </ul>
         </details>
       ) : null}
-
+      </div>
+      )}
       </div>
 
       <GoalFormDialog
